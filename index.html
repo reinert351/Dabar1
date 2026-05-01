@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dabar | Estudo Bíblico Profundo</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; margin: 0; padding: 0; }
+        h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto; }
+        .bible-text { font-family: 'Merriweather', serif; }
+        .dir-rtl { direction: rtl; }
+        .sepia { background-color: #f4ecd8 !important; color: #5b4636 !important; }
+        .midnight { background-color: #000000 !important; color: #ffffff !important; }
+        .ocean { background-color: #f0f9ff !important; color: #0c4a6e !important; }
+        .forest { background-color: #f0fdf4 !important; color: #14532d !important; }
+        .gold { background-color: #050505 !important; color: #d4af37 !important; }
+        .gold .bg-white, .gold .bg-slate-50, .gold .bg-slate-100, .gold .dark\:bg-slate-800, .gold .dark\:bg-slate-900, .gold nav, .gold header, .gold .bg-slate-50\/50, .gold .bg-slate-50\/95, .gold .dark\:bg-black\/95, .gold .bg-white\/50, .gold .dark\:bg-slate-900\/50, .gold .bg-white\/30, .gold .dark\:bg-slate-900\/30 { background-color: #0a0a0a !important; }
+        .gold .text-slate-900, .gold .text-slate-800, .gold .text-slate-700, .gold .text-slate-600, .gold .dark\:text-white, .gold .dark\:text-slate-200, .gold .dark\:text-slate-300, .gold .text-indigo-600, .gold .dark\:text-indigo-400, .gold .text-indigo-500 { color: #d4af37 !important; }
+        .gold .text-slate-500, .gold .text-slate-400, .gold .dark\:text-slate-400, .gold .text-slate-300 { color: rgba(212, 175, 55, 0.6) !important; }
+        .gold .border-slate-100, .gold .border-slate-200, .gold .dark\:border-slate-700, .gold .dark\:border-slate-800, .gold .border-slate-300, .gold .dark\:border-white\/5 { border-color: rgba(212, 175, 55, 0.2) !important; }
+        .gold .bg-indigo-600, .gold .bg-blue-600, .gold .bg-emerald-600, .gold .bg-amber-600, .gold .bg-purple-600, .gold .bg-orange-600, .gold .bg-indigo-500, .gold .bg-amber-500 { background-color: #d4af37 !important; color: #000000 !important; }
+        .gold .shadow-sm, .gold .shadow-md, .gold .shadow-lg, .gold .shadow-xl { shadow: 0 10px 15px -3px rgba(212, 175, 55, 0.05) !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+
+        #launch-screen {
+            position: fixed;
+            inset: 0;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .launch-logo {
+            width: 80px;
+            height: 80px;
+            background: #4f46e5;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 50px rgba(79, 70, 229, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .launch-text {
+            color: white;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react/": "https://esm.sh/react@19.0.0/",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/": "https://esm.sh/react-dom@19.0.0/",
+    "@google/genai": "https://esm.sh/@google/genai@1.40.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "fs": "https://esm.sh/fs@^0.0.1-security",
+    "path": "https://esm.sh/path@^0.12.7",
+    "url": "https://esm.sh/url@^0.11.4"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900 transition-colors duration-200">
+    <div id="launch-screen">
+        <div class="launch-logo">D</div>
+        <div class="launch-text">Dabar</div>
+    </div>
+    <div id="root"></div>
+
+    <script>
+      // 1. Definição Global de Proteção Titan
+      window.process = { env: { API_KEY: "" } };
+
+      // Bloqueio de Ruído de Console para Origin Policy (ServiceWorker)
+      const originalError = console.error;
+      console.error = function(...args) {
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('ServiceWorker')) return;
+        originalError.apply(console, args);
+      };
+
+    </script>
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>

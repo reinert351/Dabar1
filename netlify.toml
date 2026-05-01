@@ -1,0 +1,19 @@
+
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    # CRÍTICO: Permite que o app use o hardware no Android/iOS via WebIntoApp
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=()"
+    # Permite carregamento de módulos externos do esm.sh
+    Cross-Origin-Resource-Policy = "cross-origin"

@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Negar tudo por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Regras para a coleção de usuários
+    match /users/{userId} {
+      // Usuário pode ler seu próprio perfil
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Permitir criação inicial de conta (pelo próprio app)
+      allow create: if request.auth != null && request.auth.uid == userId 
+        && request.resource.data.keys().hasAll(['email', 'isPremium', 'createdAt'])
+        && request.resource.data.isPremium == false; // Sempre começa como false
+
+      // Usuário NÃO pode alterar seu próprio status Premium ou e-mail
+      allow update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin']) // Exemplo: permite apenas atualizar data de acesso
+        && request.resource.data.isPremium == resource.data.isPremium;
+    }
+  }
+}

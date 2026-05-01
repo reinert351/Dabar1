@@ -1,0 +1,8 @@
+{
+  "name": "Dabar 1 - Academia Bíblica",
+  "description": "A plataforma mais completa para o estudo bíblico offline, com concordância de Strong, temas teológicos avançados e ferramentas de exegese.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

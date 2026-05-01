@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account and entitlement data",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "isPremium", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Storage for user entitlement status"
+    }
+  }
+}

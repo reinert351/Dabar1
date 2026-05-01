@@ -1,0 +1,11 @@
+const fs = require('fs');
+const content = fs.readFileSync('data/pericopes.ts', 'utf8');
+const startIndex = content.indexOf('[\n  {');
+const endIndex = content.lastIndexOf(']');
+const arr = new Function('return ' + content.substring(startIndex, endIndex + 1))();
+const p7 = arr.find(p => p.id === 'jos_7_1_26');
+const p8 = arr.find(p => p.id === 'jos_8_1_35');
+console.log('jos_7 intro length:', p7.introduction.length);
+console.log('jos_8 intro length:', p8.introduction.length);
+console.log('jos_7 points[0] desc length:', p7.points[0].description.length);
+console.log('jos_8 points[0] desc length:', p8.points[0].description.length);
