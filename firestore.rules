@@ -16,9 +16,9 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['email', 'isPremium', 'createdAt'])
         && request.resource.data.isPremium == false; // Sempre começa como false
 
-      // Usuário NÃO pode alterar seu próprio status Premium ou e-mail
+      // Usuário pode atualizar seus próprios dados de sessão
       allow update: if request.auth != null && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin']) // Exemplo: permite apenas atualizar data de acesso
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastSessionId', 'lastLoginAt'])
         && request.resource.data.isPremium == resource.data.isPremium;
     }
   }

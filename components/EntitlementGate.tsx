@@ -20,6 +20,7 @@ const EntitlementGate: React.FC<EntitlementGateProps> = ({ userState, onActivate
 
   if (userState.isPremium) return <>{children}</>;
 
+
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) return;
     setIsVerifying(true);
@@ -45,11 +46,14 @@ const EntitlementGate: React.FC<EntitlementGateProps> = ({ userState, onActivate
         const user = userCredential.user;
         
         // Check Firestore for entitlement
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          if (userData.isPremium) {
+          
+          // Note: Session sync is now handled by useSessionMonitor hook
+          if (userData.isPremium || userData.isAdmin) {
              onActivate();
           } else {
              setErrorMsg('Acesso Premium não encontrado para esta conta. Caso tenha comprado recentemente, aguarde a liberação.');

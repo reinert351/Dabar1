@@ -60,6 +60,8 @@ import { auth, db } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
+import { useSessionMonitor } from './hooks/useSessionMonitor';
+
 const NavItem: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string; color?: string }> = ({ active, onClick, icon, label, color }) => (
   <button 
     onClick={onClick}
@@ -84,6 +86,7 @@ const DEFAULT_STATE: UserState = {
 };
 
 const App: React.FC = () => {
+  useSessionMonitor();
   const [activeTab, setActiveTab] = useState<string>('landing');
   const [navMetadata, setNavMetadata] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -117,6 +120,7 @@ const App: React.FC = () => {
 
   const [studioFilter, setStudioFilter] = useState<SermonType | 'all'>('all');
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [isInitialAuthLoading, setIsInitialAuthLoading] = useState(true);
 
   const [userState, setUserState] = useState<UserState>(() => {
     try {
@@ -134,26 +138,33 @@ const App: React.FC = () => {
   // Observador de Autenticação Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth State Changed: ", user?.email);
       setFirebaseUser(user);
+      
       if (user) {
-        // Buscar status premium no Firestore
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userRef);
+          
           if (userDoc.exists()) {
             const data = userDoc.data();
-            if (data.isPremium) {
-              setUserState(prev => ({ ...prev, isPremium: true }));
-            } else {
-              setUserState(prev => ({ ...prev, isPremium: false }));
-            }
+            console.log("User Data loaded from DB: ", data);
+            setUserState(prev => ({ 
+              ...prev, 
+              isPremium: !!(data.isPremium || data.isAdmin)
+            }));
+          } else {
+            console.warn("User document does not exist in Firestore.");
           }
-        } catch (error) {
-          console.error("Erro ao verificar status premium:", error);
+        } catch (error: any) {
+          console.error("Erro ao carregar dados do usuário no Firestore:", error);
         }
       } else {
-        // Se deslogar, remove o premium (a menos que seja vitalício local - opcional)
         setUserState(prev => ({ ...prev, isPremium: false }));
       }
+      
+      // Sempre desativar o carregamento inicial após a primeira resposta do Auth
+      setIsInitialAuthLoading(false);
     });
 
     return () => unsubscribe();
@@ -283,6 +294,17 @@ const App: React.FC = () => {
   };
 
   const isTabFree = ['landing', 'manual', 'bible', 'strong', 'messages', 'ajustes', 'settings'].includes(activeTab);
+
+  if (isInitialAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Verificando Credenciais...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col lg:flex-row ${userState.theme} ${['dark', 'midnight', 'gold'].includes(userState.theme) ? 'dark bg-black' : 'bg-slate-50'}`}>
