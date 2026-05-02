@@ -668,7 +668,7 @@ export const globalSearch = async (term: string) => {
   };
   const lower = term.toLowerCase();
   
-  const searchStore = (storeName: string, fields: string[], limit: number = 30): Promise<any[]> => new Promise((res) => {
+  const searchStore = (storeName: string, fields: string[], limit: number = 1000000): Promise<any[]> => new Promise((res) => {
     try {
       if (!db.objectStoreNames.contains(storeName)) return res([]);
       const list: any[] = [];
@@ -697,21 +697,20 @@ export const globalSearch = async (term: string) => {
     }
   });
 
-  // IndexedDB Search in parallel with slightly higher limit for verses
+  // IndexedDB Search in parallel
   const [dbVerses, dbSermons, dbClips, dbDiary, dbHymns] = await Promise.all([
-    searchStore(STORES.VERSES, ['text', 'id'], 50),
-    searchStore(STORES.SERMONS, ['title'], 20),
-    searchStore(STORES.LIBRARY, ['title', 'content'], 20),
-    searchStore(STORES.DIARY, ['title', 'content'], 20),
-    searchStore(STORES.HYMNS, ['title', 'lyrics'], 20)
+    searchStore(STORES.VERSES, ['text', 'id'], 50000),
+    searchStore(STORES.SERMONS, ['title'], 10000),
+    searchStore(STORES.LIBRARY, ['title', 'content'], 10000),
+    searchStore(STORES.DIARY, ['title', 'content'], 10000),
+    searchStore(STORES.HYMNS, ['title', 'lyrics'], 10000)
   ]);
 
   results.verses = dbVerses;
 
-  // Static Seed Search (limited to prevent UI hang with full Bible seeds)
+  // Static Seed Search
   const seedMatches: any[] = [];
   for (const v of INITIAL_SEED) {
-    if (seedMatches.length >= 50) break;
     if ((v.text || '').toLowerCase().includes(lower) || (v.id || '').toLowerCase().includes(lower)) {
       if (!results.verses.some((rv: any) => rv.id === v.id)) {
         seedMatches.push(v);
@@ -725,10 +724,9 @@ export const globalSearch = async (term: string) => {
   results.diary = dbDiary;
   results.hymns = dbHymns;
 
-  // Static Data Search with safety limits
+  // Static Data Search
   const academyResults: any[] = [];
   for (const m of ACADEMY_DATA) {
-    if (academyResults.length >= 20) break;
     const matches = m.topics.filter(t => 
       (t.title || '').toLowerCase().includes(lower) || 
       (t.content || []).some(c => (c || '').toLowerCase().includes(lower)) ||
@@ -741,9 +739,8 @@ export const globalSearch = async (term: string) => {
       (t.timeline && t.timeline.some(tl => (tl.event || '').toLowerCase().includes(lower) || (tl.significance || '').toLowerCase().includes(lower)))
     ).map(t => ({ ...t, moduleTitle: m.title, moduleId: m.id }));
     academyResults.push(...matches);
-    if (academyResults.length >= 20) break;
   }
-  results.academy = academyResults.slice(0, 20);
+  results.academy = academyResults;
 
   results.metrology = MEASURES_DATA.filter(m => 
     (m.label || '').toLowerCase().includes(lower) || 
@@ -809,13 +806,12 @@ export const globalSearch = async (term: string) => {
     (m.content || []).some(p => (p || '').toLowerCase().includes(lower))
   );
 
-  const safeFilterLimited = (arr: any[] | undefined | null, fn: (item: any) => boolean, limit: number = 20) => {
+  const safeFilterLimited = (arr: any[] | undefined | null, fn: (item: any) => boolean, _limit: number = 20) => {
     const list = [];
     const source = arr || [];
     for (const item of source) {
       if (fn(item)) {
         list.push(item);
-        if (list.length >= limit) break;
       }
     }
     return list;
@@ -892,7 +888,6 @@ export const globalSearch = async (term: string) => {
         (s.definition || '').toLowerCase().includes(lower)
       ) {
         strongResults.push(s);
-        if (strongResults.length >= 15) break;
       }
     }
   }
