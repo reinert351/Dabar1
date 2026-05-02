@@ -1,105 +1,42 @@
-import { useEffect, useRef } from 'react';
-import { auth, db } from '../services/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+name: Deploy Vite to GitHub Pages
 
-export const useSessionMonitor = () => {
-  const isSetup = useRef(null);
-  const instanceIdRef = useRef(null);
+on:
+  push:
+    branches:
+      - main
 
-  useEffect(() => {
-    const instanceId =
-      "v3_" +
-      Math.random().toString(36).substring(2, 10) +
-      "_" +
-      Date.now();
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-    instanceIdRef.current = instanceId;
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    let unsubscribe = null;
+    steps:
+      - uses: actions/checkout@v4
 
-    console.log(`[SESSION] Iniciado. ID: ${instanceId}`);
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
-      }
+      - run: npm install
+      - run: npm run build
 
-      if (!user) {
-        isSetup.current = null;
-        return;
-      }
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
 
-      if (isSetup.current === user.uid) return;
-      isSetup.current = user.uid;
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
 
-      const userRef = doc(db, 'users', user.uid);
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-      console.log(`[SESSION] Monitorando: ${user.email}`);
-
-      try {
-        await setDoc(
-          userRef,
-          {
-            lastSessionId: instanceIdRef.current,
-            lastLoginAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-
-        console.log(`[SESSION] Sessão registrada`);
-      } catch (err) {
-        console.error("[SESSION] Erro ao salvar sessão:", err);
-      }
-
-      let initialized = false;
-
-      unsubscribe = onSnapshot(
-        userRef,
-        (snapshot) => {
-          if (!snapshot.exists()) return;
-
-          const data = snapshot.data();
-          const serverSid = data.lastSessionId;
-
-          console.log(
-            `[SESSION CHECK] Local=${instanceIdRef.current} | DB=${serverSid}`
-          );
-
-          // ignora primeira sincronização
-          if (!initialized) {
-            initialized = true;
-            return;
-          }
-
-          // pequeno delay evita conflito falso
-          setTimeout(() => {
-            if (
-              serverSid &&
-              serverSid !== instanceIdRef.current
-            ) {
-              console.warn("[SESSION] Sessão tomada por outro dispositivo");
-
-              alert(
-                "Sua conta foi acessada em outro dispositivo. Você será desconectado."
-              );
-
-              auth.signOut().then(() => {
-                window.location.reload();
-              });
-            }
-          }, 500);
-        },
-        (error) => {
-          console.error("[SESSION] Erro no listener:", error);
-        }
-      );
-    });
-
-    return () => {
-      unsubAuth();
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
-};
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
