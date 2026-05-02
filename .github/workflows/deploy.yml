@@ -8,7 +8,6 @@ export const useSessionMonitor = () => {
   const instanceIdRef = useRef(null);
 
   useEffect(() => {
-    // 🔑 ID único por aba/dispositivo
     const instanceId =
       "v3_" +
       Math.random().toString(36).substring(2, 10) +
@@ -22,7 +21,6 @@ export const useSessionMonitor = () => {
     console.log(`[SESSION] Iniciado. ID: ${instanceId}`);
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      // limpar listener antigo
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -33,7 +31,6 @@ export const useSessionMonitor = () => {
         return;
       }
 
-      // evita duplicar setup
       if (isSetup.current === user.uid) return;
       isSetup.current = user.uid;
 
@@ -42,24 +39,22 @@ export const useSessionMonitor = () => {
       console.log(`[SESSION] Monitorando: ${user.email}`);
 
       try {
-        // 🔥 IMPORTANTE: cria ou atualiza o documento
         await setDoc(
           userRef,
           {
-            lastSessionId: instanceId,
+            lastSessionId: instanceIdRef.current,
             lastLoginAt: new Date().toISOString(),
           },
           { merge: true }
         );
 
-        console.log(`[SESSION] Sessão registrada: ${instanceId}`);
+        console.log(`[SESSION] Sessão registrada`);
       } catch (err) {
         console.error("[SESSION] Erro ao salvar sessão:", err);
       }
 
-      let firstLoad = true;
+      let initialized = false;
 
-      // 👀 escuta mudanças em tempo real
       unsubscribe = onSnapshot(
         userRef,
         (snapshot) => {
@@ -69,27 +64,32 @@ export const useSessionMonitor = () => {
           const serverSid = data.lastSessionId;
 
           console.log(
-            `[SESSION CHECK] Local=${instanceId} | DB=${serverSid}`
+            `[SESSION CHECK] Local=${instanceIdRef.current} | DB=${serverSid}`
           );
 
-          // 🚫 ignora primeira leitura (evita falso logout)
-          if (firstLoad) {
-            firstLoad = false;
+          // ignora primeira sincronização
+          if (!initialized) {
+            initialized = true;
             return;
           }
 
-          // 🚨 DETECTA OUTRA SESSÃO
-          if (serverSid && serverSid !== instanceIdRef.current) {
-            console.warn("[SESSION] Outra sessão detectada!");
+          // pequeno delay evita conflito falso
+          setTimeout(() => {
+            if (
+              serverSid &&
+              serverSid !== instanceIdRef.current
+            ) {
+              console.warn("[SESSION] Sessão tomada por outro dispositivo");
 
-            alert(
-              "Sua conta foi acessada em outro dispositivo. Você será desconectado."
-            );
+              alert(
+                "Sua conta foi acessada em outro dispositivo. Você será desconectado."
+              );
 
-            auth.signOut().then(() => {
-              window.location.reload();
-            });
-          }
+              auth.signOut().then(() => {
+                window.location.reload();
+              });
+            }
+          }, 500);
         },
         (error) => {
           console.error("[SESSION] Erro no listener:", error);
