@@ -1,44 +1,105 @@
-name: Deploy to GitHub Pages
+import { useEffect, useRef } from 'react';
+import { auth, db } from '../services/firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+export const useSessionMonitor = () => {
+  const isSetup = useRef(null);
+  const instanceIdRef = useRef(null);
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+  useEffect(() => {
+    // 🔑 ID único por aba/dispositivo
+    const instanceId =
+      "v3_" +
+      Math.random().toString(36).substring(2, 10) +
+      "_" +
+      Date.now();
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    instanceIdRef.current = instanceId;
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+    let unsubscribe = null;
 
-      - name: Install dependencies
-        run: npm install
+    console.log(`[SESSION] Iniciado. ID: ${instanceId}`);
 
-      - name: Build project
-        run: npm run build
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      // limpar listener antigo
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      if (!user) {
+        isSetup.current = null;
+        return;
+      }
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
+      // evita duplicar setup
+      if (isSetup.current === user.uid) return;
+      isSetup.current = user.uid;
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      const userRef = doc(db, 'users', user.uid);
+
+      console.log(`[SESSION] Monitorando: ${user.email}`);
+
+      try {
+        // 🔥 IMPORTANTE: cria ou atualiza o documento
+        await setDoc(
+          userRef,
+          {
+            lastSessionId: instanceId,
+            lastLoginAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+
+        console.log(`[SESSION] Sessão registrada: ${instanceId}`);
+      } catch (err) {
+        console.error("[SESSION] Erro ao salvar sessão:", err);
+      }
+
+      let firstLoad = true;
+
+      // 👀 escuta mudanças em tempo real
+      unsubscribe = onSnapshot(
+        userRef,
+        (snapshot) => {
+          if (!snapshot.exists()) return;
+
+          const data = snapshot.data();
+          const serverSid = data.lastSessionId;
+
+          console.log(
+            `[SESSION CHECK] Local=${instanceId} | DB=${serverSid}`
+          );
+
+          // 🚫 ignora primeira leitura (evita falso logout)
+          if (firstLoad) {
+            firstLoad = false;
+            return;
+          }
+
+          // 🚨 DETECTA OUTRA SESSÃO
+          if (serverSid && serverSid !== instanceIdRef.current) {
+            console.warn("[SESSION] Outra sessão detectada!");
+
+            alert(
+              "Sua conta foi acessada em outro dispositivo. Você será desconectado."
+            );
+
+            auth.signOut().then(() => {
+              window.location.reload();
+            });
+          }
+        },
+        (error) => {
+          console.error("[SESSION] Erro no listener:", error);
+        }
+      );
+    });
+
+    return () => {
+      unsubAuth();
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+};
