@@ -30,6 +30,50 @@
         .gold .border-slate-100, .gold .border-slate-200, .gold .dark\:border-slate-700, .gold .dark\:border-slate-800, .gold .border-slate-300, .gold .dark\:border-white\/5 { border-color: rgba(212, 175, 55, 0.2) !important; }
         .gold .bg-indigo-600, .gold .bg-blue-600, .gold .bg-emerald-600, .gold .bg-amber-600, .gold .bg-purple-600, .gold .bg-orange-600, .gold .bg-indigo-500, .gold .bg-amber-500 { background-color: #d4af37 !important; color: #000000 !important; }
         .gold .shadow-sm, .gold .shadow-md, .gold .shadow-lg, .gold .shadow-xl { shadow: 0 10px 15px -3px rgba(212, 175, 55, 0.05) !important; }
+        
+        /* React Quill Custom Styles */
+        .ql-custom-container {
+            display: flex;
+            flex-direction: column;
+            border-radius: 1.5rem;
+            overflow: hidden;
+        }
+        .ql-toolbar.ql-snow {
+            border: none !important;
+            background: #f8fafc;
+            padding: 8px 12px !important;
+        }
+        .dark .ql-toolbar.ql-snow {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+        .dark .ql-toolbar.ql-snow .ql-stroke {
+            stroke: #94a3b8 !important;
+        }
+        .dark .ql-toolbar.ql-snow .ql-fill {
+            fill: #94a3b8 !important;
+        }
+        .dark .ql-toolbar.ql-snow .ql-picker {
+            color: #94a3b8 !important;
+        }
+        .ql-container.ql-snow {
+            border: none !important;
+            flex: 1;
+            font-size: 1.1rem;
+        }
+        .bible-text-editor .ql-editor {
+            font-family: 'Merriweather', serif !important;
+            min-height: 160px;
+            padding: 2rem !important;
+            line-height: inherit;
+        }
+        .dark .ql-editor {
+            color: #f1f5f9;
+        }
+        .dark .ql-editor.ql-blank::before {
+            color: #64748b !important;
+        }
+        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         

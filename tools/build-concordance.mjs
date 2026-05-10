@@ -19,6 +19,7 @@ const STOPWORDS = new Set([
 ]);
 
 function normalize(text) {
+  if (!text) return "";
   return text
     .toLowerCase()
     .normalize("NFD")
@@ -56,8 +57,10 @@ async function build() {
     const chapters = book.chapters || book.capitulos || [];
     
     chapters.forEach((chapter, cIdx) => {
+      if (!chapter) return;
       const verses = Array.isArray(chapter) ? chapter : Object.values(chapter);
       verses.forEach((text, vIdx) => {
+        if (!text) return;
         refs.push(`${bookName} ${cIdx + 1}:${vIdx + 1}`);
 
         const tokens = tokenize(text);

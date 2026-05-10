@@ -143,6 +143,15 @@ export default function RevivalsTab({ captureTarget }: RevivalsTabProps) {
                     </div>
                   )}
 
+                  {event.description && (
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 mb-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-2">História e Descrição</h4>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                        {event.description}
+                      </p>
+                    </div>
+                  )}
+
                   {event.actions && event.actions.length > 0 && (
                     <div>
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Ações</h4>
@@ -200,6 +209,16 @@ export default function RevivalsTab({ captureTarget }: RevivalsTabProps) {
                     </button>
                     <button onClick={() => createProject(event, 'lesson')} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-md">
                        {ICON_STUDY('w-4 h-4')} Criar Aula
+                    </button>
+                    <button 
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('dabar-play-tts', {
+                          detail: { title: event.title, subtitle: 'Avivamentos', text: formatForStudio(event) }
+                        }));
+                      }}
+                      className="flex-1 bg-amber-500 text-slate-900 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-400 transition-all flex items-center justify-center gap-2 shadow-md"
+                    >
+                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Ouvir
                     </button>
                   </div>
                 </div>

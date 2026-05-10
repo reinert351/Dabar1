@@ -167,6 +167,16 @@ export default function ArcheologyTab({ captureTarget }: ArcheologyTabProps) {
                     <button onClick={() => createProject(item, 'lesson')} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-md">
                        {ICON_STUDY('w-4 h-4')} Criar Aula
                     </button>
+                    <button 
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('dabar-play-tts', {
+                          detail: { title: item.title, subtitle: 'Arqueologia', text: formatForStudio(item) }
+                        }));
+                      }}
+                      className="flex-1 bg-amber-500 text-slate-900 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-400 transition-all flex items-center justify-center gap-2 shadow-md"
+                    >
+                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Ouvir
+                    </button>
                   </div>
                 </div>
               </div>

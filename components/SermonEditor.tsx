@@ -1,8 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
+import { Play, Pause, X, Trash2, Maximize2, Target, Plus, Layout, Save, FileDown, Trash, Send } from 'lucide-react';
 import { Sermon, SermonBlock, SermonBlockType, CaptureTarget } from '../types';
 import { getSermons, saveSermon } from '../services/database';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 // Importação dinâmica para evitar bloqueio de boot
 const getPdfLib = async () => {
@@ -99,7 +102,9 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
         page.drawRectangle({ x: 45, y: y - 5, width: 5, height: 15, color: rgb(0.3, 0.3, 0.8) });
         page.drawText(`${idx + 1}. ${(block.title || '').toUpperCase()}`, { x: 55, y, size: 12, font: fontBold });
         y -= 20;
-        const lines = block.content.split('\n');
+        // Strip HTML for PDF export
+        const cleanContent = stripHtml(block.content);
+        const lines = cleanContent.split('\n');
         lines.forEach(line => {
           if (y < 50) { page = pdfDoc.addPage([595, 842]); y = height - 50; }
           page.drawText(line.substring(0, 85), { x: 50, y, size: 11, font });
@@ -158,6 +163,16 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
     }
   };
 
+  const removeBlock = (id: string) => {
+    // Temporarily removing confirm to test if it's the issue
+    const updated = {
+      ...localSermon,
+      blocks: localSermon.blocks.filter(b => b.id !== id)
+    };
+    setLocalSermon(updated);
+    onSave(updated);
+  };
+
   const updateBlock = (id: string, content: string, title?: string) => {
     const updated = {
       ...localSermon,
@@ -188,6 +203,33 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
     onSave(updated);
   };
 
+  const stripHtml = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
+  };
+
+  const playSermonTTS = () => {
+    const fullText = localSermon.blocks.map(b => b.title + ". " + stripHtml(b.content)).join("\n\n");
+    window.dispatchEvent(new CustomEvent('dabar-play-tts', {
+      detail: { title: localSermon.title, subtitle: 'Sermão Completo', text: fullText }
+    }));
+  };
+
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      [{ 'font': [] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'script': 'sub' }, { 'script': 'super' }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+      [{ 'align': [] }],
+      ['blockquote', 'code-block'],
+      ['link', 'image'],
+      ['clean']
+    ],
+  };
+
   const renderFocusMode = () => {
     if (!focusBlockId) return null;
     const block = localSermon.blocks.find(b => b.id === focusBlockId);
@@ -200,17 +242,20 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[200] bg-white dark:bg-slate-900 p-10 flex flex-col"
       >
-        <div className="flex justify-between items-center mb-10">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-slate-400 uppercase tracking-widest italic">Modo Foco: {block.title}</h2>
           <button onClick={() => setFocusBlockId(null)} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-xs">Sair do Foco</button>
         </div>
-        <textarea 
-          autoFocus
-          value={block.content}
-          onChange={e => updateBlock(block.id, e.target.value)}
-          className="flex-1 w-full bg-transparent bible-text text-4xl leading-relaxed outline-none dark:text-white resize-none"
-          placeholder="Escreva aqui com foco total..."
-        />
+        <div className="flex-1 overflow-hidden flex flex-col ql-custom-container">
+          <ReactQuill 
+            theme="snow"
+            value={block.content}
+            onChange={content => updateBlock(block.id, content)}
+            modules={quillModules}
+            className="flex-1 bg-transparent bible-text-editor h-full"
+            placeholder="Escreva aqui com foco total..."
+          />
+        </div>
       </motion.div>
     );
   };
@@ -231,6 +276,10 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={playSermonTTS} className="px-6 py-3 bg-indigo-500 text-white rounded-2xl font-black uppercase text-[9px] shadow-lg hover:bg-indigo-600 transition-all flex items-center gap-2">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Ouvir Sermão
+          </button>
           <button onClick={exportProPDF} disabled={isExporting} className="px-6 py-3 bg-amber-500 text-slate-900 rounded-2xl font-black uppercase text-[9px] shadow-lg hover:bg-amber-600 transition-all">
             {isExporting ? 'Processando...' : 'Exportar PDF Pro'}
           </button>
@@ -312,17 +361,51 @@ const SermonEditor: React.FC<SermonEditorProps> = ({
                     />
                   </div>
                   <div className="flex gap-2">
-                     <button onClick={() => setFocusBlockId(block.id)} className="p-2 text-slate-200 hover:text-indigo-500" title="Modo Foco">🔍</button>
-                     <button onClick={() => toggleTargetLock(block)} className={`p-2 rounded-lg transition-all ${captureTarget?.blockId === block.id ? 'bg-amber-500 text-white shadow-md' : 'text-slate-200 hover:text-amber-500'}`}>🎯</button>
-                     <button onClick={() => { if(confirm('Excluir bloco?')) setLocalSermon(p => ({...p, blocks: p.blocks.filter(b => b.id !== block.id)}))}} className="p-2 text-slate-200 hover:text-rose-500">×</button>
+                     <button 
+                       type="button"
+                       onPointerDown={e => e.stopPropagation()}
+                       onClick={(e) => { e.stopPropagation(); setFocusBlockId(block.id); }} 
+                       className="p-2 text-slate-200 hover:text-indigo-500" 
+                       title="Modo Foco"
+                     >
+                       🔍
+                     </button>
+                     <button 
+                       type="button"
+                       onPointerDown={e => e.stopPropagation()}
+                       onClick={(e) => { e.stopPropagation(); toggleTargetLock(block); }} 
+                       className={`p-2 rounded-lg transition-all ${captureTarget?.blockId === block.id ? 'bg-amber-500 text-white shadow-md' : 'text-slate-200 hover:text-amber-500'}`}
+                     >
+                       🎯
+                     </button>
+                     <button 
+                       type="button"
+                       onPointerDown={(e) => {
+                         e.stopPropagation();
+                         console.log("Delete button pointer down for block:", block.id);
+                       }}
+                       onClick={(e) => { 
+                         e.stopPropagation(); 
+                         console.log("Delete button clicked for block:", block.id);
+                         removeBlock(block.id); 
+                       }} 
+                       className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                       title="Remover Bloco"
+                     >
+                       <Trash2 className="w-4 h-4" />
+                     </button>
                   </div>
                 </div>
-                <textarea 
-                  value={block.content}
-                  onChange={e => updateBlock(block.id, e.target.value)}
-                  className="w-full bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl p-8 bible-text text-xl leading-relaxed outline-none min-h-[160px] dark:text-slate-100 resize-none"
-                  placeholder="..."
-                />
+                <div className="ql-custom-container">
+                  <ReactQuill 
+                    theme="snow"
+                    value={block.content}
+                    onChange={content => updateBlock(block.id, content)}
+                    modules={quillModules}
+                    className="w-full bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl bible-text-editor min-h-[160px] dark:text-slate-100"
+                    placeholder="..."
+                  />
+                </div>
                 
                 {/* Auto-Link Biblical Hint */}
                 {block.content.match(/\d?\s?[A-Z][a-z]+\.?\s\d+[:]\d+/) && (

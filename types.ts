@@ -1,4 +1,51 @@
 
+export type BiblicalEra = 'all' | 'patriarchs' | 'exodus' | 'judges' | 'kings' | 'exile' | 'jesus' | 'church';
+
+export interface Territory {
+  id: string;
+  name: string;
+  era: BiblicalEra;
+  color: string;
+  coordinates: [number, number][][]; // Polygon geometry
+}
+
+export interface BiblicalLocation {
+  id: string;
+  name: string;
+  biblicalName: string;
+  lat: number;
+  lng: number;
+  category: string;
+  description: string;
+  verses: string[];
+  importance: string;
+  era?: BiblicalEra[];
+  imageUrl?: string;
+  reconstructionUrl?: string;
+  elevation?: number;
+}
+
+export interface RoutePoint {
+  name: string;
+  lat: number;
+  lng: number;
+  description: string;
+  verses: string[];
+  order: number;
+  elevation?: number;
+  imageUrl?: string;
+}
+
+export interface MapRoute {
+  id: string;
+  title: string;
+  character: string;
+  points: RoutePoint[];
+  distanceKm?: number;
+  historicalContext: string;
+  era?: BiblicalEra;
+}
+
 export type TheologicalLens = 'expository' | 'historical' | 'lexical' | 'doctrinal' | 'homiletical' | 'typological' | 'practical';
 
 export interface Entitlement {
@@ -22,6 +69,35 @@ export interface UserState {
   activeLayers: TheologicalLens[]; // Novas camadas de visualização
   academyScores?: Record<string, number>; // Histórico Escolar (topicId -> score percentage)
   courseProgress?: Record<string, { completed: boolean; xp: number }>; // Histórico de Cursos (lessonId -> status)
+  flashcardProgress?: Record<string, FlashcardProgress>; // Progresso de Memorização (cardId -> SRS data)
+}
+
+export interface FlashcardProgress {
+  cardId: string;
+  deckId: string;
+  nextReview: number; // timestamp
+  interval: number; // em dias
+  easeFactor: number; // padrão 2.5
+  consecutiveCorrect: number;
+  lastReviewed: number;
+}
+
+export interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  hint?: string;
+  category?: string;
+  sourceId?: string;
+}
+
+export interface FlashcardDeck {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  cards: Flashcard[];
 }
 
 export interface DiaryEntry {

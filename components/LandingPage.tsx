@@ -6,7 +6,7 @@ import {
   ICON_ARCHEOLOGY, ICON_MESSAGES, ICON_DIARY, 
   ICON_HYMNAL, ICON_TABERNACLE, ICON_TYPOLOGY,
   ICON_CUSTOMS, ICON_HERESIES, ICON_MEASURES,
-  ICON_QUOTES, ICON_NOTE
+  ICON_QUOTES, ICON_NOTE, ICON_FLASHCARDS
 } from '../constants';
 
 interface LandingPageProps {
@@ -46,6 +46,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       desc: "Mantenha um diário espiritual, acesse o hinário inteligente e receba mensagens diárias no Manancial de Vida.",
       icon: ICON_DIARY('w-6 h-6'),
       tab: 'diary'
+    },
+    {
+      title: "Escatologia Comparada",
+      desc: "Analise visões milenaristas e tribulacionais com filtros de correntes teológicas interativos.",
+      icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0zM12 2v2m0 16v2m10-10h-2M4 12H2m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414M16.95 16.95l1.414 1.414M7.05 7.05L5.636 5.636" /> </svg>,
+      tab: 'eschatology'
+    },
+    {
+      title: "Academia de Memorização (SRS)",
+      desc: "Domine o vocabulário bíblico e fatos teológicos com nosso sistema de repetição espaçada estilo Anki.",
+      icon: ICON_FLASHCARDS('w-6 h-6'),
+      tab: 'flashcards'
     }
   ];
 

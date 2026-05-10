@@ -6,7 +6,8 @@ import {
   ICON_DIFFERENTIALS, ICON_SETTINGS, ICON_NOTE, ICON_QUOTES, 
   ICON_TABERNACLE, ICON_TYPOLOGY, ICON_MEASURES, ICON_DEEP_MAP,
   ICON_MESSAGES, ICON_HERESIES, ICON_DIARY, ICON_HYMNAL, ICON_DNA,
-  ICON_REVIVAL, ICON_COUNCIL, ICON_CUSTOMS, ICON_ARCHEOLOGY, ICON_MAPS
+  ICON_REVIVAL, ICON_COUNCIL, ICON_CUSTOMS, ICON_ARCHEOLOGY, ICON_MAPS, ICON_ESCHATOLOGY, ICON_FLASHCARDS,
+  ICON_GENEALOGIES, ICON_CREEDS, ICON_HEROES
 } from './constants';
 
 import BibleReader from './components/BibleReader';
@@ -28,6 +29,7 @@ import MeasuresTab from './components/MeasuresTab';
 import MessagesTab from './components/MessagesTab';
 import Psalm119Hub from './components/Psalm119Hub';
 import DeepBibleMap from './components/DeepBibleMap';
+import BiblicalMaps from './components/BiblicalMaps';
 import HeresiesTab from './components/HeresiesTab';
 import RevivalsTab from './components/RevivalsTab';
 import CouncilsTab from './components/CouncilsTab';
@@ -46,6 +48,15 @@ import PastorDNATab from './components/PastorDNATab';
 import StrongDictionaryTab from './components/StrongDictionaryTab';
 import ExegesisLab from './components/ExegesisLab';
 import BibleTravelSimulator from './components/BibleTravelSimulator';
+import SpotifyTTSPlayer from './components/SpotifyTTSPlayer';
+import EschatologyTab from './components/EschatologyTab';
+import FlashcardsTab from './components/FlashcardsTab';
+
+// Novos componentes
+import GenealogiesTab from './components/GenealogiesTab';
+import CreedsTab from './components/CreedsTab';
+import HeroesGalleryTab from './components/HeroesGalleryTab';
+import GreatInstrumentsTab from './components/GreatInstrumentsTab';
 
 // Importação do Novo Módulo (Plugin-Only)
 import { BiblicalPrayersModule } from './modules/biblical-prayers';
@@ -146,18 +157,27 @@ const App: React.FC = () => {
           const userRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userRef);
           
-          if (userDoc.exists()) {
+          if (!userDoc.exists()) {
+            console.log("Creating user document for first time...");
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(userRef, {
+              email: user.email,
+              isPremium: false,
+              isAdmin: false,
+              createdAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString(),
+              lastSessionId: 'initial'
+            });
+          } else {
             const data = userDoc.data();
             console.log("User Data loaded from DB: ", data);
             setUserState(prev => ({ 
               ...prev, 
               isPremium: !!(data.isPremium || data.isAdmin)
             }));
-          } else {
-            console.warn("User document does not exist in Firestore.");
           }
         } catch (error: any) {
-          console.error("Erro ao carregar dados do usuário no Firestore:", error);
+          console.error("Erro ao carregar ou criar dados do usuário no Firestore:", error);
         }
       } else {
         setUserState(prev => ({ ...prev, isPremium: false }));
@@ -279,16 +299,23 @@ const App: React.FC = () => {
       landing: 'Portal de Formação',
       bible: 'Bíblia Interligada', teia: 'Teia', sermons: 'Estúdio Pro',
       timeline: 'Cronologia Titan', kings: 'Galeria de Reis', measures: 'Metrologia Bíblica',
+      heroes: 'Heróis da Fé', instruments: 'Grandes Instrumentos',
       prophecies: 'Cânon Profético', heresies: 'Guarda da Fé', diary: 'Diário da Jornada',
       revivals: 'Chamas da História', councils: 'A Batalha pela Verdade',
       customs: 'Costumes Judaicos', archeology: 'Arqueologia Bíblica',
+      eschatology: 'Escatologia Comparada',
+      flashcards: 'Academia de Memorização',
+      atlas: 'Atlas Bíblico',
       dna: 'DNA Ministerial', tabernacle: 'Tabernáculo',
       deep_studies: 'Estudos Profundos',
       typology: 'Tipologia', hub: 'Hub', library: 'Biblioteca OCR',
       quotes: 'Vozes da História', messages: 'Manancial de Vida',
       prayers: BiblicalPrayersModule.name, strong: 'Dicionário Strong',
       academy: 'Dabar Academy', courses: 'Idiomas Bíblicos',
-      manual: 'Guia do Usuário'
+      manual: 'Guia do Usuário',
+      genealogies: 'Genealogias',
+      creeds: 'Credos & Confissões',
+      heroes: 'Heróis da Fé'
     };
     return titles[tab] || 'Santuário';
   };
@@ -352,13 +379,20 @@ const App: React.FC = () => {
                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2 block">Cânon & História</span>
                   <div className="space-y-1">
                     <NavItem active={activeTab === 'timeline'} onClick={() => handleNavigate('timeline')} icon={ICON_CHRONOLOGY('w-5 h-5')} label="Cronologia" color="bg-amber-500" />
+                    <NavItem active={activeTab === 'genealogies'} onClick={() => handleNavigate('genealogies')} icon={ICON_GENEALOGIES('w-5 h-5')} label="Genealogias" color="bg-blue-600" />
                     <NavItem active={activeTab === 'councils'} onClick={() => handleNavigate('councils')} icon={ICON_COUNCIL('w-5 h-5')} label="Concílios" color="bg-indigo-600" />
+                    <NavItem active={activeTab === 'creeds'} onClick={() => handleNavigate('creeds')} icon={ICON_CREEDS('w-5 h-5')} label="Credos & Confissões" color="bg-purple-600" />
                     <NavItem active={activeTab === 'revivals'} onClick={() => handleNavigate('revivals')} icon={ICON_REVIVAL('w-5 h-5')} label="Avivamentos" color="bg-orange-500" />
+                    <NavItem active={activeTab === 'heroes'} onClick={() => handleNavigate('heroes')} icon={ICON_HEROES('w-5 h-5')} label="Heróis da Fé" color="bg-rose-500" />
+                    <NavItem active={activeTab === 'instruments'} onClick={() => handleNavigate('instruments')} icon={ICON_HEROES('w-5 h-5')} label="Grandes Instrumentos" color="bg-rose-800" />
                     <NavItem active={activeTab === 'customs'} onClick={() => handleNavigate('customs')} icon={ICON_CUSTOMS('w-5 h-5')} label="Costumes" color="bg-amber-600" />
                     <NavItem active={activeTab === 'archeology'} onClick={() => handleNavigate('archeology')} icon={ICON_ARCHEOLOGY('w-5 h-5')} label="Arqueologia" color="bg-stone-600" />
+                    <NavItem active={activeTab === 'atlas'} onClick={() => handleNavigate('atlas')} icon={ICON_MAPS('w-5 h-5')} label="Atlas Bíblico" color="bg-amber-500" />
                     <NavItem active={activeTab === 'kings'} onClick={() => handleNavigate('kings')} icon={ICON_STUDY('w-5 h-5')} label="Reis" color="bg-orange-600" />
                     <NavItem active={activeTab === 'prophecies'} onClick={() => handleNavigate('prophecies')} icon={ICON_BIBLE('w-5 h-5')} label="Profecias" color="bg-rose-600" />
                     <NavItem active={activeTab === 'heresies'} onClick={() => handleNavigate('heresies')} icon={ICON_HERESIES('w-5 h-5')} label="Heresias" color="bg-slate-800" />
+                    <NavItem active={activeTab === 'eschatology'} onClick={() => handleNavigate('eschatology')} icon={ICON_ESCHATOLOGY('w-5 h-5')} label="Escatologia" color="bg-purple-600" />
+                    <NavItem active={activeTab === 'flashcards'} onClick={() => handleNavigate('flashcards')} icon={ICON_FLASHCARDS('w-5 h-5')} label="Memorização" color="bg-indigo-600" />
                     <NavItem active={activeTab === 'measures'} onClick={() => handleNavigate('measures')} icon={ICON_MEASURES('w-5 h-5')} label="Metrologia" color="bg-cyan-600" />
                   </div>
                 </div>
@@ -441,20 +475,28 @@ const App: React.FC = () => {
                {activeTab === 'revivals' && <RevivalsTab captureTarget={captureTarget} />}
                {activeTab === 'customs' && <CustomsTab captureTarget={captureTarget} />}
                {activeTab === 'archeology' && <ArcheologyTab captureTarget={captureTarget} />}
+               {activeTab === 'genealogies' && <GenealogiesTab />}
+               {activeTab === 'creeds' && <CreedsTab />}
+               {activeTab === 'heroes' && <HeroesGalleryTab />}
+               {activeTab === 'instruments' && <GreatInstrumentsTab captureTarget={captureTarget} onInject={(title, text) => handleInjectContent(title, text, 'library-clip')} />}
+               {activeTab === 'atlas' && <BiblicalMaps onClose={() => setActiveTab('landing')} onNavigate={handleNavigate} />}
                {activeTab === 'messages' && <MessagesTab userState={userState} captureTarget={captureTarget} />}
                {activeTab === 'prayers' && <BiblicalPrayersModule.component />}
                {activeTab === 'diary' && <DiaryTab />}
                {activeTab === 'dna' && <PastorDNATab />}
+               {activeTab === 'eschatology' && <EschatologyTab captureTarget={captureTarget} />}
+               {activeTab === 'flashcards' && <FlashcardsTab userState={userState} setUserState={setUserState} />}
                {activeTab === 'tabernacle' && <TabernacleTab userState={userState} setUserState={setUserState} captureTarget={captureTarget} />}
                {activeTab === 'deep_studies' && <DeepStudiesTab userState={userState} captureTarget={captureTarget} />}
                {activeTab === 'typology' && <TypologyTab userState={userState} setUserState={setUserState} captureTarget={captureTarget} />}
                {activeTab === 'strong' && <StrongDictionaryTab onNavigate={handleNavigate} />}
-               {activeTab === 'academy' && <AcademyTab userState={userState} setUserState={setUserState} metadata={navMetadata} />}
+               {activeTab === 'academy' && <AcademyTab userState={userState} setUserState={setUserState} metadata={navMetadata} onNavigate={handleNavigate} />}
                {activeTab === 'courses' && <CoursesTab userState={userState} setUserState={setUserState} onNavigate={handleNavigate} />}
                {activeTab === 'ajustes' && <AppSettings userState={userState} setUserState={setUserState} firebaseUser={firebaseUser} />}
                {activeTab === 'settings' && <Settings userState={userState} setUserState={setUserState} firebaseUser={firebaseUser} />}
             </main>
           </div>
+          <SpotifyTTSPlayer />
         </>
     </div>
   );

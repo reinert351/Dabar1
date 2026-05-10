@@ -1,6 +1,7 @@
 
 import { Verse, Sermon, CommentaryEntry, AICommentCache, LibraryClip, PulpitSession, CoachingReport, TeiaGraph, StrongEntry, DiaryEntry, Hymn, StrongToken } from '../types';
-import { STRONGS_DATA, STRONG_TOKENS, integrateStrongs, INITIAL_SEED } from '../data';
+import { STRONGS_DATA, STRONG_TOKENS, integrateStrongs, INITIAL_SEED, SPECIAL_STUDIES_DATA } from '../data';
+import { PERICOPES } from '../data/pericopes';
 import { ACADEMY_DATA } from '../data/academy_data';
 import { MEASURES_DATA } from '../data/measures_data';
 import { KINGS_DATA } from '../data/kings_data';
@@ -21,7 +22,6 @@ import { PARABLES_DATA } from '../data/parables_data';
 import { PRAYERS_30 } from '../modules/biblical-prayers/data/prayers_30';
 import { MARTYRS_DATA } from '../data/martyrs_data';
 import { APOCRYPHA_DATA } from '../data/apocrypha_data';
-import { SPECIAL_STUDIES_DATA } from '../data';
 import { tabernacleData } from '../components/TabernacleVisualExplorer';
 import { ABRAHAM_JOURNEY } from '../components/AbrahamJourney';
 import { 
@@ -34,8 +34,10 @@ import {
 
 import { fetchStrongFromGemini, fetchVerseTokensFromGemini } from './geminiStrongService';
 
+import { BIBLE_METADATA } from '../constants';
+
 const DB_NAME = 'DabarDB';
-const DB_VERSION = 48; 
+const DB_VERSION = 49; 
 
 export const STORES = {
   VERSES: 'verses',
@@ -51,12 +53,14 @@ export const STORES = {
   STRONGS: 'strongs',
   STRONG_TOKENS: 'strong_tokens',
   DIARY: 'diary',
-  HYMNS: 'hymns'
+  HYMNS: 'hymns',
+  MAP_ROUTES: 'map_routes'
 };
 
-const normalize = (w: any) => (String(w || '')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
-
 let dbInstance: IDBDatabase | null = null;
+
+const normalize = (s: string) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const searchNormalize = normalize;
 
 export const initDB = (): Promise<IDBDatabase> => {
   if (dbInstance) return Promise.resolve(dbInstance);
@@ -104,6 +108,9 @@ export const initDB = (): Promise<IDBDatabase> => {
         }
         if (!db.objectStoreNames.contains(STORES.PENDING_SCANS)) {
           db.createObjectStore(STORES.PENDING_SCANS, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(STORES.MAP_ROUTES)) {
+          db.createObjectStore(STORES.MAP_ROUTES, { keyPath: 'id' });
         }
       };
 
@@ -449,7 +456,7 @@ export const searchStrongsByText = async (text: string): Promise<StrongEntry[]> 
         .sort((a, b) => b.score - a.score)
         .map(m => m.entry);
       
-      resolve(matched.slice(0, 20));
+      resolve(matched.slice(0, 500));
     };
 
     req.onsuccess = () => processResults(req.result || []);
@@ -510,7 +517,7 @@ export const searchStrongsInDB = async (term: string): Promise<StrongEntry[]> =>
         if ((val.id || '').toLowerCase().includes(lowerTerm) || (val.transliteration || '').toLowerCase().includes(lowerTerm) || (val.definition || '').toLowerCase().includes(lowerTerm) || (val.original || '').includes(term)) {
           results.push(val);
         }
-        if (results.length < 200) cursor.continue(); 
+        if (results.length < 1000) cursor.continue(); 
         else resolve(results);
       } else {
         // Se a busca no DB for vazia e o DB estiver zerado, busca no estático
@@ -520,7 +527,7 @@ export const searchStrongsInDB = async (term: string): Promise<StrongEntry[]> =>
             (item.transliteration || '').toLowerCase().includes(lowerTerm) || 
             (item.definition || '').toLowerCase().includes(lowerTerm) || 
             (item.original || '').includes(term)
-          ).slice(0, 100);
+          ).slice(0, 500);
           resolve(staticResults as StrongEntry[]);
         } else {
           resolve(results);
@@ -637,11 +644,36 @@ export const getOCRDocuments = async (): Promise<any[]> => { const db = await in
 export const deleteOCRDocument = async (id: string) => { const db = await initDB(); const tx = db.transaction([STORES.DOCUMENTS, STORES.PAGES], 'readwrite'); tx.objectStore(STORES.DOCUMENTS).delete(id); const index = tx.objectStore(STORES.PAGES).index('docId'); index.openCursor(IDBKeyRange.only(id)).onsuccess = (e: any) => { const cursor = e.target.result; if (cursor) { cursor.delete(); cursor.continue(); } }; };
 export const saveOCRPage = async (page: any) => { const db = await initDB(); const tx = db.transaction(STORES.PAGES, 'readwrite'); tx.objectStore(STORES.PAGES).put(page); };
 export const getOCRPages = async (docId: string): Promise<any[]> => { const db = await initDB(); return new Promise(res => { if (!db.objectStoreNames.contains(STORES.PAGES)) return res([]); const index = db.transaction(STORES.PAGES, 'readonly').objectStore(STORES.PAGES).index('docId'); const req = index.getAll(IDBKeyRange.only(docId)); req.onsuccess = () => res(req.result || []); }); };
+
+export const saveMapRoute = async (route: any) => { 
+  const db = await initDB(); 
+  const tx = db.transaction(STORES.MAP_ROUTES, 'readwrite'); 
+  tx.objectStore(STORES.MAP_ROUTES).put({ ...route, savedAt: new Date().toISOString() }); 
+  return new Promise<void>(res => tx.oncomplete = () => res());
+};
+
+export const getMapRoutes = async (): Promise<any[]> => { 
+  const db = await initDB(); 
+  return new Promise(res => { 
+    if (!db.objectStoreNames.contains(STORES.MAP_ROUTES)) return res([]); 
+    const req = db.transaction(STORES.MAP_ROUTES, 'readonly').objectStore(STORES.MAP_ROUTES).getAll(); 
+    req.onsuccess = () => res(req.result || []); 
+  }); 
+};
+
+export const deleteMapRoute = async (id: string) => { 
+  const db = await initDB(); 
+  const tx = db.transaction(STORES.MAP_ROUTES, 'readwrite'); 
+  tx.objectStore(STORES.MAP_ROUTES).delete(id); 
+  return new Promise<void>(res => tx.oncomplete = () => res());
+};
+
 export const saveDiaryEntry = async (entry: DiaryEntry) => { const db = await initDB(); const tx = db.transaction(STORES.DIARY, 'readwrite'); tx.objectStore(STORES.DIARY).put(entry); };
 export const getDiaryEntries = async (): Promise<DiaryEntry[]> => { const db = await initDB(); return new Promise(res => { const req = db.transaction(STORES.DIARY, 'readonly').objectStore(STORES.DIARY).getAll(); req.onsuccess = () => res(req.result || []); }); };
 export const globalSearch = async (term: string) => { 
   const db = await initDB();
   const results: any = { 
+    books: [],
     verses: [], 
     sermons: [], 
     clips: [], 
@@ -664,33 +696,43 @@ export const globalSearch = async (term: string) => {
     typology: [],
     deepStudies: [],
     prayers: [],
-    hub: []
+    hub: [],
+    pericopes: [],
+    strongs: []
   };
+
   const lower = term.toLowerCase();
+  const searchLower = searchNormalize(term);
+
+  // Check for Book Matches
+  results.books = Object.values(BIBLE_METADATA).filter((b: any) => 
+    searchNormalize(b.name).includes(searchLower) || 
+    searchNormalize(b.abbreviation).includes(searchLower)
+  );
   
   const searchStore = (storeName: string, fields: string[], limit: number = 1000000): Promise<any[]> => new Promise((res) => {
     try {
       if (!db.objectStoreNames.contains(storeName)) return res([]);
-      const list: any[] = [];
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
-      const req = store.openCursor();
+      const req = store.getAll();
       
-      req.onsuccess = (e: any) => {
-        const cursor = e.target.result;
-        if (cursor && list.length < limit) {
-          const val = cursor.value;
-          const matches = fields.some(f => String(val[f] || '').toLowerCase().includes(lower));
-          if (matches) list.push(val);
-          cursor.continue();
-        } else {
-          res(list);
+      req.onsuccess = () => {
+        const all = req.result || [];
+        const matches = [];
+        for (const val of all) {
+          if (matches.length >= limit) break;
+          const isMatch = fields.some(f => {
+            const fieldVal = String(val[f] || '');
+            return searchNormalize(fieldVal).includes(searchLower);
+          });
+          if (isMatch) matches.push(val);
         }
+        res(matches);
       };
       req.onerror = () => res([]);
-      tx.onerror = () => res([]);
-      // Safety timeout for each store search
-      setTimeout(() => res(list), 2000);
+      // Safety timeout
+      setTimeout(() => res([]), 15000);
     } catch (err) {
       console.error(`Search error in store ${storeName}:`, err);
       res([]);
@@ -698,26 +740,77 @@ export const globalSearch = async (term: string) => {
   });
 
   // IndexedDB Search in parallel
-  const [dbVerses, dbSermons, dbClips, dbDiary, dbHymns] = await Promise.all([
+  const [dbVerses, dbSermons, dbClips, dbDiary, dbHymns, dbStrongs] = await Promise.all([
     searchStore(STORES.VERSES, ['text', 'id'], 50000),
     searchStore(STORES.SERMONS, ['title'], 10000),
     searchStore(STORES.LIBRARY, ['title', 'content'], 10000),
     searchStore(STORES.DIARY, ['title', 'content'], 10000),
-    searchStore(STORES.HYMNS, ['title', 'lyrics'], 10000)
+    searchStore(STORES.HYMNS, ['title', 'lyrics'], 10000),
+    searchStore(STORES.STRONGS, ['id', 'definition', 'transliteration'], 1000)
   ]);
 
   results.verses = dbVerses;
+  results.strongs = dbStrongs;
+
+  // Reference detection (e.g. "João 3:16" or "Joao 3")
+  const refMatch = term.match(/^([1-3]?\s?[A-Za-zÀ-ÿ]+)\s+(\d+)(?::(\d+))?$/);
+  if (refMatch) {
+    const bookRequested = refMatch[1].trim();
+    const chapterRequested = parseInt(refMatch[2]);
+    const verseRequested = refMatch[3] ? parseInt(refMatch[3]) : null;
+
+    const book = Object.values(BIBLE_METADATA).find((b: any) => 
+      searchNormalize(b.name) === searchNormalize(bookRequested) || 
+      searchNormalize(b.abbreviation) === searchNormalize(bookRequested)
+    );
+
+    if (book) {
+      // Fetch specific verses for this reference
+      const tx = db.transaction(STORES.VERSES, 'readonly');
+      const store = tx.objectStore(STORES.VERSES);
+      const index = store.index('book_chapter');
+      const range = IDBKeyRange.only([book.id, chapterRequested]);
+      
+      const refVerses: any[] = await new Promise((res) => {
+        const req = index.getAll(range);
+        req.onsuccess = () => {
+          let vList = req.result || [];
+          if (verseRequested) vList = vList.filter(v => v.verse === verseRequested);
+          res(vList);
+        };
+        req.onerror = () => res([]);
+      });
+
+      // Merge with results
+      refVerses.forEach(rv => {
+        if (!results.verses.some((ev: any) => ev.id === rv.id)) {
+          results.verses.push(rv);
+        }
+      });
+    }
+  }
 
   // Static Seed Search
   const seedMatches: any[] = [];
   for (const v of INITIAL_SEED) {
-    if ((v.text || '').toLowerCase().includes(lower) || (v.id || '').toLowerCase().includes(lower)) {
+    if (searchNormalize(v.text).includes(searchLower) || searchNormalize(v.id).includes(searchLower)) {
       if (!results.verses.some((rv: any) => rv.id === v.id)) {
         seedMatches.push(v);
       }
     }
   }
   results.verses.push(...seedMatches);
+
+  results.pericopes = PERICOPES.filter(p => 
+    searchNormalize(p.title || '').includes(searchLower) ||
+    searchNormalize(p.theme || '').includes(searchLower) ||
+    searchNormalize(p.introduction || '').includes(searchLower) ||
+    searchNormalize(p.conclusion || '').includes(searchLower) ||
+    (p.points || []).some(pt => 
+      searchNormalize(pt.title || '').includes(searchLower) || 
+      searchNormalize(pt.description || '').includes(searchLower)
+    )
+  );
 
   results.sermons = dbSermons;
   results.clips = dbClips;
@@ -728,25 +821,25 @@ export const globalSearch = async (term: string) => {
   const academyResults: any[] = [];
   for (const m of ACADEMY_DATA) {
     const matches = m.topics.filter(t => 
-      (t.title || '').toLowerCase().includes(lower) || 
-      (t.content || []).some(c => (c || '').toLowerCase().includes(lower)) ||
-      (t.subItems || []).some(s => (s || '').toLowerCase().includes(lower)) ||
-      (t.etymology && t.etymology.some(e => (e.term || '').toLowerCase().includes(lower) || (e.meaning || '').toLowerCase().includes(lower))) ||
-      (t.thesis && (t.thesis || '').toLowerCase().includes(lower)) ||
-      (t.primarySources && t.primarySources.some(ps => (ps.title || '').toLowerCase().includes(lower) || (ps.summary || '').toLowerCase().includes(lower) || (ps.content || '').toLowerCase().includes(lower))) ||
-      (t.dilemmas && t.dilemmas.some(d => (d.title || '').toLowerCase().includes(lower) || (d.scenario || '').toLowerCase().includes(lower) || (d.suggestedResolution || '').toLowerCase().includes(lower))) ||
-      (t.comparativeMatrix && t.comparativeMatrix.some(cm => (cm.category || '').toLowerCase().includes(lower) || (cm.views || []).some(v => (v.position || '').toLowerCase().includes(lower)))) ||
-      (t.timeline && t.timeline.some(tl => (tl.event || '').toLowerCase().includes(lower) || (tl.significance || '').toLowerCase().includes(lower)))
+      searchNormalize(t.title).includes(searchLower) || 
+      (t.content || []).some(c => searchNormalize(c).includes(searchLower)) ||
+      (t.subItems || []).some(s => searchNormalize(s).includes(searchLower)) ||
+      (t.etymology && t.etymology.some(e => searchNormalize(e.term).includes(searchLower) || searchNormalize(e.meaning).includes(searchLower))) ||
+      (t.thesis && searchNormalize(t.thesis).includes(searchLower)) ||
+      (t.primarySources && t.primarySources.some(ps => searchNormalize(ps.title).includes(searchLower) || searchNormalize(ps.summary).includes(searchLower) || searchNormalize(ps.content).includes(searchLower))) ||
+      (t.dilemmas && t.dilemmas.some(d => searchNormalize(d.title).includes(searchLower) || searchNormalize(d.scenario).includes(searchLower) || searchNormalize(d.suggestedResolution).includes(searchLower))) ||
+      (t.comparativeMatrix && t.comparativeMatrix.some(cm => searchNormalize(cm.category).includes(searchLower) || (cm.views || []).some(v => searchNormalize(v.position).includes(searchLower)))) ||
+      (t.timeline && t.timeline.some(tl => searchNormalize(tl.event).includes(searchLower) || searchNormalize(tl.significance).includes(searchLower)))
     ).map(t => ({ ...t, moduleTitle: m.title, moduleId: m.id }));
     academyResults.push(...matches);
   }
   results.academy = academyResults;
 
   results.metrology = MEASURES_DATA.filter(m => 
-    (m.label || '').toLowerCase().includes(lower) || 
-    (m.val || '').toLowerCase().includes(lower) || 
-    (m.theo || '').toLowerCase().includes(lower) ||
-    (m.extra && (m.extra || '').toLowerCase().includes(lower))
+    (searchNormalize(m.label).includes(searchLower)) || 
+    (searchNormalize(m.val).includes(searchLower)) || 
+    (searchNormalize(m.theo).includes(searchLower)) ||
+    (m.extra && searchNormalize(m.extra).includes(searchLower))
   );
 
   results.kings = [
@@ -754,59 +847,59 @@ export const globalSearch = async (term: string) => {
     ...KINGS_DATA.judah,
     ...KINGS_DATA.israel
   ].filter(k => 
-    (k.name || '').toLowerCase().includes(lower) || 
-    (k.summary || '').toLowerCase().includes(lower) || 
-    (k.spiritualProfile && (k.spiritualProfile || '').toLowerCase().includes(lower))
+    searchNormalize(k.name).includes(searchLower) || 
+    searchNormalize(k.summary).includes(searchLower) || 
+    (k.spiritualProfile && searchNormalize(k.spiritualProfile).includes(searchLower))
   );
 
   results.prophecies = PROPHECIES_DATA.filter(p => 
-    (p.theme || '').toLowerCase().includes(lower) || 
-    (p.prophecyText || '').toLowerCase().includes(lower) || 
-    (p.fulfillmentText && (p.fulfillmentText || '').toLowerCase().includes(lower))
+    searchNormalize(p.theme).includes(searchLower) || 
+    searchNormalize(p.prophecyText).includes(searchLower) || 
+    (p.fulfillmentText && searchNormalize(p.fulfillmentText).includes(searchLower))
   );
 
   results.revivals = revivalsData.flatMap(cat => cat.events.filter(r => 
-    (r.title || '').toLowerCase().includes(lower) || 
-    (r.description && (r.description || '').toLowerCase().includes(lower)) || 
-    (r.insight && (r.insight || '').toLowerCase().includes(lower))
+    searchNormalize(r.title).includes(searchLower) || 
+    (r.description && searchNormalize(r.description).includes(searchLower)) || 
+    (r.insight && searchNormalize(r.insight).includes(searchLower))
   ).map(r => ({ ...r, categoryTitle: cat.title })));
 
   results.councils = councilsData.flatMap(cat => cat.events.filter(c => 
-    (c.title || '').toLowerCase().includes(lower) || 
-    (c.context && (c.context || '').toLowerCase().includes(lower)) || 
-    (c.decision && (c.decision || '').toLowerCase().includes(lower))
+    searchNormalize(c.title).includes(searchLower) || 
+    (c.context && searchNormalize(c.context).includes(searchLower)) || 
+    (c.decision && searchNormalize(c.decision).includes(searchLower))
   ).map(c => ({ ...c, categoryTitle: cat.title })));
 
   results.customs = customsData.flatMap(cat => cat.items.filter(c => 
-    (c.title || '').toLowerCase().includes(lower) || 
-    (c.description && (c.description || '').toLowerCase().includes(lower)) || 
-    (c.spiritualMeaning && (c.spiritualMeaning || '').toLowerCase().includes(lower))
+    searchNormalize(c.title).includes(searchLower) || 
+    (c.description && searchNormalize(c.description).includes(searchLower)) || 
+    (c.spiritualMeaning && searchNormalize(c.spiritualMeaning).includes(searchLower))
   ).map(c => ({ ...c, categoryTitle: cat.title })));
 
   results.archeology = archeologyData.flatMap(cat => cat.items.filter(a => 
-    (a.title || '').toLowerCase().includes(lower) || 
-    (a.description && (a.description || '').toLowerCase().includes(lower)) || 
-    (a.biblicalRelevance && (a.biblicalRelevance || '').toLowerCase().includes(lower))
+    searchNormalize(a.title).includes(searchLower) || 
+    (a.description && searchNormalize(a.description).includes(searchLower)) || 
+    (a.biblicalRelevance && searchNormalize(a.biblicalRelevance).includes(searchLower))
   ).map(a => ({ ...a, categoryTitle: cat.title })));
 
   results.heresies = HERESIES_DATA.flatMap(block => block.items.filter(h => 
-    (h.title || '').toLowerCase().includes(lower) || 
-    (h.subtitle || '').toLowerCase().includes(lower) || 
-    (h.errorNucleus || []).some(e => (e || '').toLowerCase().includes(lower))
+    searchNormalize(h.title).includes(searchLower) || 
+    searchNormalize(h.subtitle).includes(searchLower) || 
+    (h.errorNucleus || []).some(e => searchNormalize(e).includes(searchLower))
   ).map(h => ({ ...h, blockTitle: block.title })));
 
   results.quotes = HISTORICAL_QUOTES.filter(q => 
-    (q.text || '').toLowerCase().includes(lower) || 
-    (q.author || '').toLowerCase().includes(lower)
+    searchNormalize(q.text).includes(searchLower) || 
+    searchNormalize(q.author).includes(searchLower)
   );
 
   results.messages = MANANCIAIS_DATA.filter(m => 
-    (m.title || '').toLowerCase().includes(lower) || 
-    (m.summary || '').toLowerCase().includes(lower) || 
-    (m.content || []).some(p => (p || '').toLowerCase().includes(lower))
+    searchNormalize(m.title).includes(searchLower) || 
+    searchNormalize(m.summary).includes(searchLower) || 
+    (m.content || []).some(p => searchNormalize(p).includes(searchLower))
   );
 
-  const safeFilterLimited = (arr: any[] | undefined | null, fn: (item: any) => boolean, _limit: number = 20) => {
+  const safeFilterLimited = (arr: any[] | undefined | null, fn: (item: any) => boolean, _limit: number = 1000000) => {
     const list = [];
     const source = arr || [];
     for (const item of source) {
@@ -818,63 +911,63 @@ export const globalSearch = async (term: string) => {
   };
 
   results.ditosDuros = safeFilterLimited(DITOS_DUROS, d => 
-    (d.problem || '').toLowerCase().includes(lower) || 
-    (d.exegesis || '').toLowerCase().includes(lower) || 
-    (d.harmonization || '').toLowerCase().includes(lower)
-  , 20);
+    searchNormalize(d.problem).includes(searchLower) || 
+    searchNormalize(d.exegesis).includes(searchLower) || 
+    searchNormalize(d.harmonization).includes(searchLower)
+  );
 
   results.timeline = safeFilterLimited(HISTORICAL_PERIODS_DATA, p => 
-    (p.title || '').toLowerCase().includes(lower) || 
-    (p.summary || '').toLowerCase().includes(lower) || 
-    (p.events || []).some((e: any) => (e.title || '').toLowerCase().includes(lower) || (e.year || '').toLowerCase().includes(lower))
-  , 20);
+    searchNormalize(p.title).includes(searchLower) || 
+    searchNormalize(p.summary).includes(searchLower) || 
+    (p.events || []).some((e: any) => searchNormalize(e.title).includes(searchLower) || searchNormalize(e.year).includes(searchLower))
+  );
 
   results.courses = safeFilterLimited(COURSES_DATA, c => 
-    (c.title || '').toLowerCase().includes(lower) || 
-    (c.description || '').toLowerCase().includes(lower) || 
-    (c.modules || []).some((m: any) => (m.title || '').toLowerCase().includes(lower) || (m.lessons || []).some((l: any) => (l.title || '').toLowerCase().includes(lower) || (l.content || []).some((p: any) => (p || '').toLowerCase().includes(lower))))
-  , 15);
+    searchNormalize(c.title).includes(searchLower) || 
+    searchNormalize(c.description).includes(searchLower) || 
+    (c.modules || []).some((m: any) => searchNormalize(m.title).includes(searchLower) || (m.lessons || []).some((l: any) => searchNormalize(l.title).includes(searchLower) || (l.content || []).some((p: any) => searchNormalize(p).includes(searchLower))))
+  );
 
   results.typology = safeFilterLimited(TYPOLOGY_DATA, t => 
-    (t.title || '').toLowerCase().includes(lower) || 
-    (t.shadow || '').toLowerCase().includes(lower) || 
-    (t.reality || '').toLowerCase().includes(lower) || 
-    (t.paragraphs || []).some((p: any) => (p || '').toLowerCase().includes(lower))
-  , 15);
+    searchNormalize(t.title).includes(searchLower) || 
+    searchNormalize(t.shadow).includes(searchLower) || 
+    searchNormalize(t.reality).includes(searchLower) || 
+    (t.paragraphs || []).some((p: any) => searchNormalize(p).includes(searchLower))
+  );
 
   results.deepStudies = [
-    ...safeFilterLimited(DEEP_MAP_DATA, d => (d.event || '').toLowerCase().includes(lower) || (d.theme || '').toLowerCase().includes(lower) || (d.theology || '').toLowerCase().includes(lower) || (d.application || '').toLowerCase().includes(lower) || (d.connections || []).some((c: any) => (c || '').toLowerCase().includes(lower)), 10).map(d => ({ title: d.event, description: d.theology, originalData: d })),
-    ...safeFilterLimited(PARABLES_DATA, p => (p.title || '').toLowerCase().includes(lower) || (p.theologicalMeaning || '').toLowerCase().includes(lower) || (p.context || '').toLowerCase().includes(lower) || (p.practicalApplication || '').toLowerCase().includes(lower), 10).map(p => ({ title: p.title, description: p.theologicalMeaning, originalData: p })),
-    ...safeFilterLimited(MARTYRS_DATA, m => (m.name || '').toLowerCase().includes(lower) || (m.method || '').toLowerCase().includes(lower) || (m.location || '').toLowerCase().includes(lower) || (m.description || '').toLowerCase().includes(lower), 10).map(m => ({ title: m.name, description: m.description, originalData: m })),
-    ...safeFilterLimited(APOCRYPHA_DATA, a => (a.title || '').toLowerCase().includes(lower) || (a.summary || '').toLowerCase().includes(lower) || (a.category || '').toLowerCase().includes(lower), 10).map(a => ({ title: a.title, description: a.summary, originalData: a })),
-    ...safeFilterLimited(SPECIAL_STUDIES_DATA, s => (s.title || '').toLowerCase().includes(lower) || (s.content || '').toLowerCase().includes(lower) || (s.tags || []).some((t: any) => (t || '').toLowerCase().includes(lower)), 10).map(s => ({ title: s.title, description: s.content.substring(0, 100) + '...', originalData: s })),
-    ...safeFilterLimited(tabernacleData, t => (t.title || '').toLowerCase().includes(lower) || (t.significance || '').toLowerCase().includes(lower) || (t.description || '').toLowerCase().includes(lower) || (t.theology || '').toLowerCase().includes(lower), 10).map(t => ({ title: t.title, description: t.description, originalData: t })),
-    ...safeFilterLimited(ABRAHAM_JOURNEY, a => (a.location || '').toLowerCase().includes(lower) || (a.desc || '').toLowerCase().includes(lower) || (a.verses || '').toLowerCase().includes(lower), 10).map(a => ({ title: a.location, description: a.desc, originalData: a }))
+    ...safeFilterLimited(DEEP_MAP_DATA, d => searchNormalize(d.event).includes(searchLower) || searchNormalize(d.theme).includes(searchLower) || searchNormalize(d.theology).includes(searchLower) || searchNormalize(d.application).includes(searchLower) || (d.connections || []).some((c: any) => searchNormalize(c).includes(searchLower))).map(d => ({ title: d.event, description: d.theology, originalData: d })),
+    ...safeFilterLimited(PARABLES_DATA, p => searchNormalize(p.title).includes(searchLower) || searchNormalize(p.theologicalMeaning).includes(searchLower) || searchNormalize(p.context).includes(searchLower) || searchNormalize(p.practicalApplication).includes(searchLower)).map(p => ({ title: p.title, description: p.theologicalMeaning, originalData: p })),
+    ...safeFilterLimited(MARTYRS_DATA, m => searchNormalize(m.name).includes(searchLower) || searchNormalize(m.method).includes(searchLower) || searchNormalize(m.location).includes(searchLower) || searchNormalize(m.description).includes(searchLower)).map(m => ({ title: m.name, description: m.description, originalData: m })),
+    ...safeFilterLimited(APOCRYPHA_DATA, a => searchNormalize(a.title).includes(searchLower) || searchNormalize(a.summary).includes(searchLower) || searchNormalize(a.category).includes(searchLower)).map(a => ({ title: a.title, description: a.summary, originalData: a })),
+    ...safeFilterLimited(SPECIAL_STUDIES_DATA, s => searchNormalize(s.title).includes(searchLower) || searchNormalize(s.content).includes(searchLower) || (s.tags || []).some((t: any) => searchNormalize(t).includes(searchLower))).map(s => ({ title: s.title, description: s.content.substring(0, 100) + '...', originalData: s })),
+    ...safeFilterLimited(tabernacleData, t => searchNormalize(t.title).includes(searchLower) || searchNormalize(t.significance).includes(searchLower) || searchNormalize(t.description).includes(searchLower) || searchNormalize(t.theology).includes(searchLower)).map(t => ({ title: t.title, description: t.description, originalData: t })),
+    ...safeFilterLimited(ABRAHAM_JOURNEY, a => searchNormalize(a.location).includes(searchLower) || searchNormalize(a.desc).includes(searchLower) || searchNormalize(a.verses).includes(searchLower)).map(a => ({ title: a.location, description: a.desc, originalData: a }))
   ];
 
   results.prayers = safeFilterLimited(PRAYERS_30, p => 
-    (p.title || '').toLowerCase().includes(lower) || 
-    (p.type || '').toLowerCase().includes(lower) || 
-    (p.context || '').toLowerCase().includes(lower) || 
-    (p.theology || '').toLowerCase().includes(lower)
-  , 20);
+    searchNormalize(p.title).includes(searchLower) || 
+    searchNormalize(p.type).includes(searchLower) || 
+    searchNormalize(p.context).includes(searchLower) || 
+    searchNormalize(p.theology).includes(searchLower)
+  );
 
   results.hub = [
-    ...safeFilterLimited(DABAR_DICTIONARY, d => (d.term || '').toLowerCase().includes(lower) || (d.definition || '').toLowerCase().includes(lower), 15),
-    ...safeFilterLimited(HISTORICAL_CONTEXTS, h => (h.title || '').toLowerCase().includes(lower) || (h.content || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(THEOLOGICAL_TOPICS, t => (t.title || '').toLowerCase().includes(lower) || (t.development || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(SERMON_OUTLINES, s => (s.title || '').toLowerCase().includes(lower) || (s.keyVerse || '').toLowerCase().includes(lower) || (s.points || []).some((p: any) => (p.title || '').toLowerCase().includes(lower) || (p.explanation || '').toLowerCase().includes(lower)), 10),
-    ...safeFilterLimited(COMMON_ERRORS, c => (c.mistake || '').toLowerCase().includes(lower) || (c.correction || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(NT_OT_CONNECTIONS, n => (n.ot_shadow || '').toLowerCase().includes(lower) || (n.nt_fulfillment || '').toLowerCase().includes(lower) || (n.description || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(BIBLICAL_PROFILES, b => (b.name || '').toLowerCase().includes(lower) || (b.appearances || []).some((a: any) => (a || '').toLowerCase().includes(lower)) || (b.strengths || []).some((s: any) => (s || '').toLowerCase().includes(lower)) || (b.failures || []).some((f: any) => (f || '').toLowerCase().includes(lower)), 10),
-    ...safeFilterLimited(INTERTESTAMENTAL_CONTEXT, i => (i.title || '').toLowerCase().includes(lower) || (i.impact || '').toLowerCase().includes(lower) || (i.description || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(BIBLE_QUOTES, b => (b.text || '').toLowerCase().includes(lower) || (b.category || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(READING_PLANS, r => (r.title || '').toLowerCase().includes(lower) || (r.description || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(GLOBAL_TIMELINE_EVENTS, g => (g.title || '').toLowerCase().includes(lower) || (g.description || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(DEVOTIONALS, d => (d.title || '').toLowerCase().includes(lower) || (d.content || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(TIMELINE_EVENTS, t => (t.title || '').toLowerCase().includes(lower) || (t.description || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(THEMATIC_PRAYERS, t => (t.theme || '').toLowerCase().includes(lower) || (t.text || '').toLowerCase().includes(lower), 10),
-    ...safeFilterLimited(DISPENSATIONS_DETAILED, d => (d.title || '').toLowerCase().includes(lower) || (d.description || '').toLowerCase().includes(lower), 10)
+    ...safeFilterLimited(DABAR_DICTIONARY, d => searchNormalize(d.term).includes(searchLower) || searchNormalize(d.definition).includes(searchLower)),
+    ...safeFilterLimited(HISTORICAL_CONTEXTS, h => searchNormalize(h.title).includes(searchLower) || searchNormalize(h.content).includes(searchLower)),
+    ...safeFilterLimited(THEOLOGICAL_TOPICS, t => searchNormalize(t.title).includes(searchLower) || searchNormalize(t.development).includes(searchLower)),
+    ...safeFilterLimited(SERMON_OUTLINES, s => searchNormalize(s.title).includes(searchLower) || searchNormalize(s.keyVerse).includes(searchLower) || (s.points || []).some((p: any) => searchNormalize(p.title).includes(searchLower) || searchNormalize(p.explanation).includes(searchLower))),
+    ...safeFilterLimited(COMMON_ERRORS, c => searchNormalize(c.mistake).includes(searchLower) || searchNormalize(c.correction).includes(searchLower)),
+    ...safeFilterLimited(NT_OT_CONNECTIONS, n => searchNormalize(n.ot_shadow).includes(searchLower) || searchNormalize(n.nt_fulfillment).includes(searchLower) || searchNormalize(n.description).includes(searchLower)),
+    ...safeFilterLimited(BIBLICAL_PROFILES, b => searchNormalize(b.name).includes(searchLower) || (b.appearances || []).some((a: any) => searchNormalize(a).includes(searchLower)) || (b.strengths || []).some((s: any) => searchNormalize(s).includes(searchLower)) || (b.failures || []).some((f: any) => searchNormalize(f).includes(searchLower))),
+    ...safeFilterLimited(INTERTESTAMENTAL_CONTEXT, i => searchNormalize(i.title).includes(searchLower) || searchNormalize(i.impact).includes(searchLower) || searchNormalize(i.description).includes(searchLower)),
+    ...safeFilterLimited(BIBLE_QUOTES, b => searchNormalize(b.text).includes(searchLower) || searchNormalize(b.category).includes(searchLower)),
+    ...safeFilterLimited(READING_PLANS, r => searchNormalize(r.title).includes(searchLower) || searchNormalize(r.description).includes(searchLower)),
+    ...safeFilterLimited(GLOBAL_TIMELINE_EVENTS, g => searchNormalize(g.title).includes(searchLower) || searchNormalize(g.description).includes(searchLower)),
+    ...safeFilterLimited(DEVOTIONALS, d => searchNormalize(d.title).includes(searchLower) || searchNormalize(d.content).includes(searchLower)),
+    ...safeFilterLimited(TIMELINE_EVENTS, t => searchNormalize(t.title).includes(searchLower) || searchNormalize(t.description).includes(searchLower)),
+    ...safeFilterLimited(THEMATIC_PRAYERS, t => searchNormalize(t.theme).includes(searchLower) || searchNormalize(t.text).includes(searchLower)),
+    ...safeFilterLimited(DISPENSATIONS_DETAILED, d => searchNormalize(d.title).includes(searchLower) || searchNormalize(d.description).includes(searchLower))
   ];
 
   const strongResults = [];
@@ -882,10 +975,10 @@ export const globalSearch = async (term: string) => {
     for (const key in STRONGS_DATA) {
       const s = (STRONGS_DATA as any)[key];
       if (
-        (s.originalWord || '').toLowerCase().includes(lower) || 
-        (s.transliteration || '').toLowerCase().includes(lower) || 
-        (s.shortDefinition || '').toLowerCase().includes(lower) || 
-        (s.definition || '').toLowerCase().includes(lower)
+        searchNormalize(s.originalWord).includes(searchLower) || 
+        searchNormalize(s.transliteration).includes(searchLower) || 
+        searchNormalize(s.shortDefinition).includes(searchLower) || 
+        searchNormalize(s.definition).includes(searchLower)
       ) {
         strongResults.push(s);
       }

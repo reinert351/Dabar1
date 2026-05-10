@@ -10,39 +10,56 @@ import { HISTORICO_NT_SEED } from './data/bible_historico_nt';
 import { EPISTOLAS_SEED } from './data/bible_epistolas';
 import { APOCALIPSE_SEED } from './data/bible_apocalipse';
 import { EXPANDED_TOPICAL_BIBLE } from './data/topical_index';
-import { STRONG_TOKENS_SEED } from './data/strong_tokens';
-import { STRONG_TOKENS_SEED_1 } from './data/strong_tokens_1';
-import { STRONG_TOKENS_SEED_2 } from './data/strong_tokens_2';
-import { STRONG_TOKENS_SEED_3 } from './data/strong_tokens_3';
-import { STRONG_TOKENS_SEED_4 } from './data/strong_tokens_4';
-import { STRONG_TOKENS_SEED_5 } from './data/strong_tokens_5';
-import { STRONG_TOKENS_SEED_6 } from './data/strong_tokens_6';
-import { STRONG_TOKENS_SEED_7 } from './data/strong_tokens_7';
-import { STRONG_TOKENS_SEED_8 } from './data/strong_tokens_8';
-import { STRONG_TOKENS_SEED_9 } from './data/strong_tokens_9';
-import { STRONG_TOKENS_SEED_10 } from './data/strong_tokens_10';
-import { STRONG_TOKENS_SEED_11 } from './data/strong_tokens_11';
-import { STRONG_TOKENS_SEED_12 } from './data/strong_tokens_12';
-import { STRONG_TOKENS_SEED_13 } from './data/strong_tokens_13';
-import { STRONG_TOKENS_SEED_14 } from './data/strong_tokens_14';
-import { STRONG_TOKENS_SEED_15 } from './data/strong_tokens_15';
-import { STRONG_TOKENS_SEED_16 } from './data/strong_tokens_16';
-import { STRONG_TOKENS_SEED_17 } from './data/strong_tokens_17';
-import { STRONG_TOKENS_SEED_18 } from './data/strong_tokens_18';
-import { STRONG_TOKENS_SEED_19 } from './data/strong_tokens_19';
-import { STRONG_TOKENS_SEED_20 } from './data/strong_tokens_20';
-import { STRONG_TOKENS_SEED_21 } from './data/strong_tokens_21';
-import { STRONG_TOKENS_SEED_22 } from './data/strong_tokens_22';
-import { STRONG_TOKENS_SEED_23 } from './data/strong_tokens_23';
-import { STRONG_TOKENS_SEED_24 } from './data/strong_tokens_24';
-import { STRONG_TOKENS_SEED_25 } from './data/strong_tokens_25';
-import { STRONG_TOKENS_SEED_26 } from './data/strong_tokens_26';
-import { STRONG_TOKENS_SEED_27 } from './data/strong_tokens_27';
-import { STRONG_TOKENS_SEED_28 } from './data/strong_tokens_28';
-import { STRONG_TOKENS_SEED_29 } from './data/strong_tokens_29';
-import { STRONG_TOKENS_SEED_30 } from './data/strong_tokens_30';
-import { STRONG_TOKENS_SEED_31 } from './data/strong_tokens_31';
-import { STRONG_TOKENS_SEED_32 } from './data/strong_tokens_32';
+
+// Large Strong's token data is now lazy-loaded to keep main bundle small
+export let STRONG_TOKENS: Record<string, any> = {};
+
+export async function loadStrongTokens(onProgress?: (p: number) => void) {
+  const chunks = [
+    () => import('./data/strong_tokens'),
+    () => import('./data/strong_tokens_1'),
+    () => import('./data/strong_tokens_2'),
+    () => import('./data/strong_tokens_3'),
+    () => import('./data/strong_tokens_4'),
+    () => import('./data/strong_tokens_5'),
+    () => import('./data/strong_tokens_6'),
+    () => import('./data/strong_tokens_7'),
+    () => import('./data/strong_tokens_8'),
+    () => import('./data/strong_tokens_9'),
+    () => import('./data/strong_tokens_10'),
+    () => import('./data/strong_tokens_11'),
+    () => import('./data/strong_tokens_12'),
+    () => import('./data/strong_tokens_13'),
+    () => import('./data/strong_tokens_14'),
+    () => import('./data/strong_tokens_15'),
+    () => import('./data/strong_tokens_16'),
+    () => import('./data/strong_tokens_17'),
+    () => import('./data/strong_tokens_18'),
+    () => import('./data/strong_tokens_19'),
+    () => import('./data/strong_tokens_20'),
+    () => import('./data/strong_tokens_21'),
+    () => import('./data/strong_tokens_22'),
+    () => import('./data/strong_tokens_23'),
+    () => import('./data/strong_tokens_24'),
+    () => import('./data/strong_tokens_25'),
+    () => import('./data/strong_tokens_26'),
+    () => import('./data/strong_tokens_27'),
+    () => import('./data/strong_tokens_28'),
+    () => import('./data/strong_tokens_29'),
+    () => import('./data/strong_tokens_30'),
+    () => import('./data/strong_tokens_31'),
+    () => import('./data/strong_tokens_32')
+  ];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = await chunks[i]();
+    // Usually the export is like { STRONG_TOKENS_SEED_N: { ... } }
+    const seed = Object.values(chunk)[0] as Record<string, any>;
+    STRONG_TOKENS = { ...STRONG_TOKENS, ...seed };
+    if (onProgress) onProgress(((i + 1) / chunks.length) * 100);
+  }
+  return STRONG_TOKENS;
+}
 import { HISTORICAL_PERIODS_DATA as HP_DATA } from './data/historical_periods';
 
 export const TOPICAL_BIBLE = EXPANDED_TOPICAL_BIBLE;
@@ -73,41 +90,7 @@ export const MAPS_DATA: MapData[] = [
   }
 ];
 
-export const STRONG_TOKENS = {
-  ...STRONG_TOKENS_SEED,
-  ...STRONG_TOKENS_SEED_1,
-  ...STRONG_TOKENS_SEED_2,
-  ...STRONG_TOKENS_SEED_3,
-  ...STRONG_TOKENS_SEED_4,
-  ...STRONG_TOKENS_SEED_5,
-  ...STRONG_TOKENS_SEED_6,
-  ...STRONG_TOKENS_SEED_7,
-  ...STRONG_TOKENS_SEED_8,
-  ...STRONG_TOKENS_SEED_9,
-  ...STRONG_TOKENS_SEED_10,
-  ...STRONG_TOKENS_SEED_11,
-  ...STRONG_TOKENS_SEED_12,
-  ...STRONG_TOKENS_SEED_13,
-  ...STRONG_TOKENS_SEED_14,
-  ...STRONG_TOKENS_SEED_15,
-  ...STRONG_TOKENS_SEED_16,
-  ...STRONG_TOKENS_SEED_17,
-  ...STRONG_TOKENS_SEED_18,
-  ...STRONG_TOKENS_SEED_19,
-  ...STRONG_TOKENS_SEED_20,
-  ...STRONG_TOKENS_SEED_21,
-  ...STRONG_TOKENS_SEED_22,
-  ...STRONG_TOKENS_SEED_23,
-  ...STRONG_TOKENS_SEED_24,
-  ...STRONG_TOKENS_SEED_25,
-  ...STRONG_TOKENS_SEED_26,
-  ...STRONG_TOKENS_SEED_27,
-  ...STRONG_TOKENS_SEED_28,
-  ...STRONG_TOKENS_SEED_29,
-  ...STRONG_TOKENS_SEED_30,
-  ...STRONG_TOKENS_SEED_31,
-  ...STRONG_TOKENS_SEED_32
-};
+// STRONG_TOKENS initialized in head as empty for lazy loading
 
 // Função utilitária para integrar os tokens Strong na estrutura do versículo
 export const integrateStrongs = (verses: Verse[]): Verse[] => {

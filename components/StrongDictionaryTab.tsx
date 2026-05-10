@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StrongEntry } from '../types';
 import { searchStrongsInDB, getStrongEntry, getVersesByStrong } from '../services/database';
 import { ICON_STUDY, ICON_BIBLE } from '../constants';
+import { STRONG_TOKENS, loadStrongTokens } from '../data';
 
 interface StrongDictionaryTabProps {
   onNavigate?: (tab: string, metadata?: any) => void;
@@ -13,6 +14,14 @@ const StrongDictionaryTab: React.FC<StrongDictionaryTabProps> = ({ onNavigate })
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [occurrences, setOccurrences] = useState<Record<string, string[]>>({});
+  const [loadingTokens, setLoadingTokens] = useState(false);
+
+  useEffect(() => {
+    if (Object.keys(STRONG_TOKENS).length === 0) {
+      setLoadingTokens(true);
+      loadStrongTokens().finally(() => setLoadingTokens(false));
+    }
+  }, []);
 
   const handleSearch = async () => {
     if (!query.trim()) return;

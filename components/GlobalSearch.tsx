@@ -52,41 +52,20 @@ const isNewTestament = (bookId: string) => {
 };
 
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedForSermons = [] }) => {
+  const RESET_RESULTS = {
+    books: [],
+    verses: [], sermons: [], clips: [], diary: [], hymns: [],
+    academy: [], metrology: [], kings: [], prophecies: [], revivals: [],
+    councils: [], customs: [], archeology: [], heresies: [], quotes: [], messages: [], ditosDuros: [],
+    timeline: [], courses: [], typology: [], deepStudies: [], prayers: [], hub: [], strongs: [],
+    pericopes: []
+  };
+
   const [term, setTerm] = useState('');
   const [activeTab, setActiveTab] = useState<string>('bible_list');
   const [openThemes, setOpenThemes] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [results, setResults] = useState<{ 
-    verses: Verse[], 
-    sermons: Sermon[], 
-    clips: LibraryClip[], 
-    diary: DiaryEntry[], 
-    hymns: Hymn[],
-    academy: any[],
-    metrology: any[],
-    kings: any[],
-    prophecies: any[],
-    revivals: any[],
-    councils: any[],
-    customs: any[],
-    archeology: any[],
-    heresies: any[],
-    quotes: any[],
-    messages: any[],
-    ditosDuros: any[],
-    timeline: any[],
-    courses: any[],
-    typology: any[],
-    deepStudies: any[],
-    prayers: any[],
-    hub: any[],
-    strongs: any[]
-  }>({ 
-    verses: [], sermons: [], clips: [], diary: [], hymns: [],
-    academy: [], metrology: [], kings: [], prophecies: [], revivals: [],
-    councils: [], customs: [], archeology: [], heresies: [], quotes: [], messages: [], ditosDuros: [],
-    timeline: [], courses: [], typology: [], deepStudies: [], prayers: [], hub: [], strongs: []
-  });
+  const [results, setResults] = useState<any>(RESET_RESULTS);
   const [isSearching, setIsSearching] = useState(false);
   const [spiritualCache, setSpiritualCache] = useState<Record<string, SpiritualClassification>>({});
   
@@ -106,29 +85,27 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
   useEffect(() => {
     const delay = setTimeout(async () => {
       if (term.length < 2) {
-        setResults({ 
-          verses: [], sermons: [], clips: [], diary: [], hymns: [],
-          academy: [], metrology: [], kings: [], prophecies: [], revivals: [],
-          councils: [], customs: [], archeology: [], heresies: [], quotes: [], messages: [], ditosDuros: [],
-          timeline: [], courses: [], typology: [], deepStudies: [], prayers: [], hub: [], strongs: []
-        });
+        setResults(RESET_RESULTS);
         return;
       }
       setIsSearching(true);
       try {
         const data = await globalSearch(term);
         
-        data.verses.sort((a: Verse, b: Verse) => {
-          const indexA = CANONICAL_ORDER.indexOf(a.bookId);
-          const indexB = CANONICAL_ORDER.indexOf(b.bookId);
-          if (indexA !== indexB) return indexA - indexB;
-          if (a.chapter !== b.chapter) return a.chapter - b.chapter;
-          return a.verse - b.verse;
-        });
+        if (data.verses) {
+          data.verses.sort((a: Verse, b: Verse) => {
+            const indexA = CANONICAL_ORDER.indexOf(a.bookId);
+            const indexB = CANONICAL_ORDER.indexOf(b.bookId);
+            if (indexA !== indexB) return indexA - indexB;
+            if (a.chapter !== b.chapter) return a.chapter - b.chapter;
+            return a.verse - b.verse;
+          });
+        }
 
-        setResults(data);
+        setResults({ ...RESET_RESULTS, ...data });
       } catch (error) {
         console.error("Global search error:", error);
+        setResults(RESET_RESULTS);
       } finally {
         setIsSearching(false);
         setSpiritualCache({});
@@ -143,7 +120,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
   const bookHistogram = useMemo(() => {
     if (results.verses.length === 0) return [];
     const counts: Record<string, number> = {};
-    results.verses.forEach(v => {
+    results.verses.forEach((v: Verse) => {
       counts[v.bookId] = (counts[v.bookId] || 0) + 1;
     });
     return Object.entries(counts)
@@ -154,18 +131,18 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
   // Resultados Filtrados pela UI
   const filteredVerses = useMemo(() => {
     if (!selectedBookFilter) return results.verses;
-    return results.verses.filter(v => v.bookId === selectedBookFilter);
+    return results.verses.filter((v: Verse) => v.bookId === selectedBookFilter);
   }, [results.verses, selectedBookFilter]);
 
   const stats = useMemo(() => {
-    const ot = results.verses.filter(v => !isNewTestament(v.bookId)).length;
-    const nt = results.verses.filter(v => isNewTestament(v.bookId)).length;
+    const ot = results.verses.filter((v: Verse) => !isNewTestament(v.bookId)).length;
+    const nt = results.verses.filter((v: Verse) => isNewTestament(v.bookId)).length;
     return { ot, nt, total: results.verses.length, normalized: normalizeWord(term) };
   }, [results.verses, term]);
 
   const groupedVerses = useMemo(() => {
     const groups: Record<string, Verse[]> = {};
-    filteredVerses.forEach(v => {
+    filteredVerses.forEach((v: Verse) => {
       const cat = BIBLE_METADATA[v.bookId]?.category || "Outros";
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(v);
@@ -177,7 +154,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
     const groups: Record<string, { verses: Verse[], themeId: string }> = {};
     const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    filteredVerses.forEach(v => {
+    filteredVerses.forEach((v: Verse) => {
       const normText = normalize(v.text);
       const scores = THEME_TAXONOMY.map(theme => {
         let score = 0;
@@ -216,7 +193,8 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
 
   const availableTabs = useMemo(() => {
     return [
-      ...(results.verses.length > 0 ? [
+      ...(results.books?.length > 0 ? [{ id: 'books', label: 'Livros', count: results.books.length }] : []),
+      ...(results.verses?.length > 0 ? [
         { id: 'bible_list', label: 'Bíblia (Canônica)', count: results.verses.length },
         { id: 'bible_themes', label: 'Bíblia (Temas)', count: thematicGroups.length }
       ] : []),
@@ -224,6 +202,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
       ...(results.messages?.length > 0 ? [{ id: 'messages', label: 'Mensagens Homiléticas', count: results.messages.length }] : []),
       ...(results.academy?.length > 0 ? [{ id: 'academy', label: 'Dabar Academy', count: results.academy.length }] : []),
       ...(results.hub?.length > 0 ? [{ id: 'hub', label: 'Dabar Hub', count: results.hub.length }] : []),
+      ...(results.pericopes?.length > 0 ? [{ id: 'pericopes', label: 'Esboços & Perícopes', count: results.pericopes.length }] : []),
       ...(results.strongs?.length > 0 ? [{ id: 'strongs', label: 'Dicionário Strong', count: results.strongs.length }] : []),
       ...(results.courses?.length > 0 ? [{ id: 'courses', label: 'Idiomas Bíblicos', count: results.courses.length }] : []),
       ...(results.deepStudies?.length > 0 ? [{ id: 'deepStudies', label: 'Estudos Profundos', count: results.deepStudies.length }] : []),
@@ -406,6 +385,24 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
         )}
 
         <div className="space-y-16 pb-20">
+          {results.books?.length > 0 && (activeTab === 'bible_list' || activeTab === 'books') && (
+            <SearchSection title="Livros Bíblicos" count={results.books.length} color="amber">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {results.books.map((b: any) => (
+                  <button
+                    key={b.id}
+                    onClick={() => onNavigate('bible', { bookId: b.id, chapter: 1, verse: 1 })}
+                    className="flex flex-col items-center justify-center p-6 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-[30px] transition-all hover:scale-[1.02] active:scale-95 group"
+                  >
+                    <span className="text-3xl font-black text-amber-500 mb-2 group-hover:scale-110 transition-transform">{b.abbreviation}</span>
+                    <span className="text-sm font-black text-white uppercase tracking-widest">{b.name}</span>
+                    <span className="text-[10px] text-amber-500/60 font-bold mt-1 uppercase">{b.category}</span>
+                  </button>
+                ))}
+              </div>
+            </SearchSection>
+          )}
+
           {activeTab === 'bible_list' && (
             CATEGORY_ORDER.map(cat => groupedVerses[cat] && groupedVerses[cat].length > 0 && (
               <SearchSection key={cat} title={cat} count={groupedVerses[cat].length} color="indigo">
@@ -495,20 +492,37 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </div>
           )}
 
-          {results.sermons.length > 0 && activeTab === 'sermons' && !selectedBookFilter && (
+          {results.sermons?.length > 0 && activeTab === 'sermons' && !selectedBookFilter && (
             <SearchSection title="Projetos no Estúdio" count={results.sermons.length} color="emerald">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.sermons.map(s => (
+                {results.sermons.map((s: any) => (
                   <ResultCard key={s.id} onClick={() => onNavigate('sermons', { id: s.id })} title={s.title} sub={s.type} type="Studio" />
                 ))}
               </div>
             </SearchSection>
           )}
 
-          {results.metrology.length > 0 && activeTab === 'metrology' && !selectedBookFilter && (
+          {results.pericopes?.length > 0 && activeTab === 'pericopes' && !selectedBookFilter && (
+            <SearchSection title="Anuário de Perícopes" count={results.pericopes.length} color="indigo">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {results.pericopes.map((p: any, idx: number) => (
+                  <ResultCard 
+                    key={idx} 
+                    onClick={() => onNavigate('bible', { bookId: p.bookId, chapter: p.chapter, verse: p.startVerse })} 
+                    onInject={() => addTextToStudio(`ESBOÇO: ${p.title}\nTEMA: ${p.theme}\n\nINTRO: ${p.introduction}\n\nPONTOS:\n${p.points.map((pt: any) => `- ${pt.title}: ${pt.description}`).join('\n')}\n\nCONCLUSÃO: ${p.conclusion}`)}
+                    title={p.title} 
+                    sub={`${p.bookId} ${p.chapter}:${p.startVerse}-${p.endVerse} — ${p.theme}`} 
+                    type="Perícope" 
+                  />
+                ))}
+              </div>
+            </SearchSection>
+          )}
+
+          {results.metrology?.length > 0 && activeTab === 'metrology' && !selectedBookFilter && (
             <SearchSection title="Metrologia Bíblica" count={results.metrology.length} color="amber">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.metrology.map((m, idx) => (
+                {results.metrology.map((m: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('measures')} 
@@ -522,10 +536,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.academy.length > 0 && activeTab === 'academy' && !selectedBookFilter && (
+          {results.academy?.length > 0 && activeTab === 'academy' && !selectedBookFilter && (
             <SearchSection title="Dabar Academy" count={results.academy.length} color="indigo">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.academy.map((t, idx) => (
+                {results.academy.map((t: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('academy', { moduleId: t.moduleId, topicId: t.id })} 
@@ -539,10 +553,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.kings.length > 0 && activeTab === 'kings' && !selectedBookFilter && (
+          {results.kings?.length > 0 && activeTab === 'kings' && !selectedBookFilter && (
             <SearchSection title="Monarquia Bíblica" count={results.kings.length} color="indigo">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.kings.map((k, idx) => (
+                {results.kings.map((k: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('kings')} 
@@ -556,10 +570,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.prophecies.length > 0 && activeTab === 'prophecies' && !selectedBookFilter && (
+          {results.prophecies?.length > 0 && activeTab === 'prophecies' && !selectedBookFilter && (
             <SearchSection title="Profecias Messiânicas" count={results.prophecies.length} color="rose">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.prophecies.map((p, idx) => (
+                {results.prophecies.map((p: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('prophecies')} 
@@ -573,10 +587,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.revivals.length > 0 && activeTab === 'revivals' && !selectedBookFilter && (
+          {results.revivals?.length > 0 && activeTab === 'revivals' && !selectedBookFilter && (
             <SearchSection title="Reavivamentos Históricos" count={results.revivals.length} color="emerald">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.revivals.map((r, idx) => (
+                {results.revivals.map((r: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('revivals')} 
@@ -590,10 +604,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.councils.length > 0 && activeTab === 'councils' && !selectedBookFilter && (
+          {results.councils?.length > 0 && activeTab === 'councils' && !selectedBookFilter && (
             <SearchSection title="Concílios Ecumênicos" count={results.councils.length} color="violet">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.councils.map((c, idx) => (
+                {results.councils.map((c: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('councils')} 
@@ -607,10 +621,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.archeology.length > 0 && activeTab === 'archeology' && !selectedBookFilter && (
+          {results.archeology?.length > 0 && activeTab === 'archeology' && !selectedBookFilter && (
             <SearchSection title="Arqueologia Bíblica" count={results.archeology.length} color="amber">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.archeology.map((a, idx) => (
+                {results.archeology.map((a: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('archeology')} 
@@ -624,10 +638,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.heresies.length > 0 && activeTab === 'heresies' && !selectedBookFilter && (
+          {results.heresies?.length > 0 && activeTab === 'heresies' && !selectedBookFilter && (
             <SearchSection title="Heresias e Seitas" count={results.heresies.length} color="rose">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.heresies.map((h, idx) => (
+                {results.heresies.map((h: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('heresies')} 
@@ -641,10 +655,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.customs.length > 0 && activeTab === 'customs' && !selectedBookFilter && (
+          {results.customs?.length > 0 && activeTab === 'customs' && !selectedBookFilter && (
             <SearchSection title="Usos e Costumes" count={results.customs.length} color="slate">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.customs.map((c, idx) => (
+                {results.customs.map((c: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('customs')} 
@@ -658,10 +672,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.quotes.length > 0 && activeTab === 'quotes' && !selectedBookFilter && (
+          {results.quotes?.length > 0 && activeTab === 'quotes' && !selectedBookFilter && (
             <SearchSection title="Citações Patrísticas" count={results.quotes.length} color="slate">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.quotes.map((q, idx) => (
+                {results.quotes.map((q: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('quotes')} 
@@ -675,10 +689,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.messages.length > 0 && activeTab === 'messages' && !selectedBookFilter && (
+          {results.messages?.length > 0 && activeTab === 'messages' && !selectedBookFilter && (
             <SearchSection title="Mensagens Homiléticas" count={results.messages.length} color="indigo">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.messages.map((m, idx) => (
+                {results.messages.map((m: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('messages')} 
@@ -692,10 +706,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.ditosDuros.length > 0 && activeTab === 'ditosDuros' && !selectedBookFilter && (
+          {results.ditosDuros?.length > 0 && activeTab === 'ditosDuros' && !selectedBookFilter && (
             <SearchSection title="Ditos Duros" count={results.ditosDuros.length} color="rose">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.ditosDuros.map((d, idx) => (
+                {results.ditosDuros.map((d: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('hub')} 
@@ -709,10 +723,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.timeline.length > 0 && activeTab === 'timeline' && !selectedBookFilter && (
+          {results.timeline?.length > 0 && activeTab === 'timeline' && !selectedBookFilter && (
             <SearchSection title="Cronologia Titan" count={results.timeline.length} color="amber">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.timeline.map((t, idx) => (
+                {results.timeline.map((t: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('timeline')} 
@@ -726,10 +740,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.courses.length > 0 && activeTab === 'courses' && !selectedBookFilter && (
+          {results.courses?.length > 0 && activeTab === 'courses' && !selectedBookFilter && (
             <SearchSection title="Idiomas Bíblicos" count={results.courses.length} color="indigo">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.courses.map((c, idx) => (
+                {results.courses.map((c: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('courses')} 
@@ -743,10 +757,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.typology.length > 0 && activeTab === 'typology' && !selectedBookFilter && (
+          {results.typology?.length > 0 && activeTab === 'typology' && !selectedBookFilter && (
             <SearchSection title="Tipologia Bíblica" count={results.typology.length} color="emerald">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.typology.map((t, idx) => (
+                {results.typology.map((t: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('typology')} 
@@ -760,10 +774,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.deepStudies.length > 0 && activeTab === 'deepStudies' && !selectedBookFilter && (
+          {results.deepStudies?.length > 0 && activeTab === 'deepStudies' && !selectedBookFilter && (
             <SearchSection title="Estudos Profundos" count={results.deepStudies.length} color="violet">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.deepStudies.map((d, idx) => (
+                {results.deepStudies.map((d: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('deep_studies')} 
@@ -777,10 +791,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.prayers.length > 0 && activeTab === 'prayers' && !selectedBookFilter && (
+          {results.prayers?.length > 0 && activeTab === 'prayers' && !selectedBookFilter && (
             <SearchSection title="Orações Bíblicas" count={results.prayers.length} color="sky">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.prayers.map((p, idx) => (
+                {results.prayers.map((p: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('prayers')} 
@@ -794,10 +808,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.hub.length > 0 && activeTab === 'hub' && !selectedBookFilter && (
+          {results.hub?.length > 0 && activeTab === 'hub' && !selectedBookFilter && (
             <SearchSection title="Dabar Hub" count={results.hub.length} color="blue">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.hub.map((h, idx) => (
+                {results.hub.map((h: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('hub')} 
@@ -811,10 +825,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.diary.length > 0 && activeTab === 'diary' && !selectedBookFilter && (
+          {results.diary?.length > 0 && activeTab === 'diary' && !selectedBookFilter && (
             <SearchSection title="Diário da Jornada" count={results.diary.length} color="pink">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.diary.map((d, idx) => (
+                {results.diary.map((d: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('diary')} 
@@ -828,10 +842,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.hymns.length > 0 && activeTab === 'hymns' && !selectedBookFilter && (
+          {results.hymns?.length > 0 && activeTab === 'hymns' && !selectedBookFilter && (
             <SearchSection title="Hinário Inteligente" count={results.hymns.length} color="sky">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.hymns.map((h, idx) => (
+                {results.hymns.map((h: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('hymnal')} 
@@ -845,17 +859,17 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onClose, onNavigate, savedF
             </SearchSection>
           )}
 
-          {results.clips.length > 0 && activeTab === 'clips' && !selectedBookFilter && (
+          {results.clips?.length > 0 && activeTab === 'clips' && !selectedBookFilter && (
             <SearchSection title="Biblioteca OCR" count={results.clips.length} color="slate">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.clips.map((c, idx) => (
+                {results.clips.map((c: any, idx: number) => (
                   <ResultCard 
                     key={idx} 
                     onClick={() => onNavigate('library')} 
                     onInject={() => addTextToStudio(`OCR CLIP: ${c.title}\nCONTEÚDO: ${c.content}`)}
                     title={c.title} 
                     sub={c.content} 
-                    type="OCR" 
+                    type="OCR Clip" 
                   />
                 ))}
               </div>

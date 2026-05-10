@@ -124,11 +124,10 @@ const PulpitMode: React.FC<PulpitModeProps> = ({ sermon, onClose }) => {
                     )}
                  </div>
                  <div 
-                   className="leading-[1.6] text-slate-100 font-medium whitespace-pre-wrap selection:bg-indigo-600"
+                   className="leading-[1.6] text-slate-100 font-medium ql-editor selection:bg-indigo-600 content-rendered"
                    style={{ fontSize: `${fontSize}px` }}
-                 >
-                   {sermon.blocks[currentBlockIndex]?.content || "Início da Pregação"}
-                 </div>
+                   dangerouslySetInnerHTML={{ __html: sermon.blocks[currentBlockIndex]?.content || "Início da Pregação" }}
+                 />
               </div>
               <div className="flex justify-between gap-6">
                  <button 

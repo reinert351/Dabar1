@@ -9,7 +9,8 @@ const AcademyTab: React.FC<{
   userState: UserState; 
   setUserState: React.Dispatch<React.SetStateAction<UserState>>;
   metadata?: any;
-}> = ({ userState, setUserState, metadata }) => {
+  onNavigate?: (tab: string) => void;
+}> = ({ userState, setUserState, metadata, onNavigate }) => {
   const [selectedModule, setSelectedModule] = useState<AcademyModule | null>(ACADEMY_DATA[0]);
   const [selectedTopic, setSelectedTopic] = useState<AcademyTopic | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -200,6 +201,30 @@ const AcademyTab: React.FC<{
                 </button>
               </div>
             )}
+          </div>
+
+          {/* NOVO: Atalho para Memorização (Flashcards) */}
+          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[30px] p-6 border border-indigo-500/30 shadow-2xl overflow-hidden relative group cursor-pointer"
+            onClick={() => onNavigate?.('flashcards')}
+          >
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                  <span className="text-xl">🧠</span>
+                </div>
+                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Academia de Memorização</h3>
+              </div>
+              <p className="text-[11px] text-white/70 font-medium leading-relaxed mb-4">
+                Domine vocabulário e dogmas com o sistema de <span className="text-indigo-400 font-bold">Repetição Espaçada (SRS)</span>.
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-white px-3 py-1 bg-indigo-600 rounded-full animate-pulse uppercase tracking-tighter">
+                  Praticar agora
+                </span>
+                <span className="text-white/30 text-[10px]">→</span>
+              </div>
+            </div>
           </div>
 
           {selectedModule && (

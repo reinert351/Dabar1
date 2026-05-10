@@ -98,6 +98,19 @@ const MessagesTab: React.FC<MessagesTabProps> = ({ userState, captureTarget }) =
 
               {isSelected && (
                 <div className="px-8 md:px-10 pb-12 space-y-8 animate-in slide-in-from-top-8 duration-500">
+                  <div className="flex justify-center gap-4 mb-10">
+                     <button
+                       onClick={() => {
+                         window.dispatchEvent(new CustomEvent('dabar-play-tts', {
+                           detail: { title: msg.title, subtitle: 'Série Mananciais', text: msg.content.join(' ') }
+                         }));
+                       }}
+                       className="bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xl shadow-amber-500/20 px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
+                     >
+                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                       Ouvir Devocional
+                     </button>
+                  </div>
                   <div className="h-1 w-24 bg-indigo-500 rounded-full mx-auto mb-10 opacity-20"></div>
                   
                   {msg.content.map((p, idx) => (
